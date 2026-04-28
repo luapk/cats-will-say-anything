@@ -189,7 +189,7 @@ export default function BgRemovalComparison() {
   const [b64, setB64] = useState(null);
   const [mime, setMime] = useState("image/jpeg");
   const [dragOver, setDragOver] = useState(false);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(import.meta.env.VITE_REPLICATE_TOKEN ?? "");
   const [showKey, setShowKey] = useState(false);
   const [modelC, setModelC] = useState("cjwbw/rembg");
   const [promptC, setPromptC] = useState(

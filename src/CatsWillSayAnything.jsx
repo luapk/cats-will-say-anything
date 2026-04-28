@@ -325,7 +325,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           font-family: 'FilsonPro', 'Nunito', sans-serif;
           font-weight: 900;
           color: #ffffff;
-          -webkit-text-stroke: 3px #000000;
+          -webkit-text-stroke: 6px #000000;
           paint-order: stroke fill;
           text-shadow: 5px 6px 0 #000000;
           line-height: 0.92;
@@ -337,7 +337,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .cwsa-title.small { font-size: clamp(24px, 5.5vw, 36px); }
         .cwsa-title-yellow {
           color: #FFED00;
-          -webkit-text-stroke: 3px #000000;
+          -webkit-text-stroke: 6px #000000;
           paint-order: stroke fill;
         }
         .cwsa-tagline {
@@ -358,18 +358,19 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           align-items: center;
           justify-content: flex-end;
           cursor: pointer;
-          transition: all 0.25s;
-          background: #FFED00;
+          transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+          background: #ffffff;
           position: relative;
           overflow: hidden;
           flex-shrink: 0;
         }
         .upload-zone:hover {
-          border-color: #E8001C;
-          border-style: solid;
+          background: #FFED00;
+          border-color: #0A0A0A;
         }
         .upload-zone.drag-over {
-          border-color: #E8001C;
+          background: #FFED00;
+          border-color: #0A0A0A;
           border-style: solid;
           transform: scale(1.02);
         }
@@ -378,7 +379,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           bottom: 0;
           left: 50%;
           transform: translateX(-50%);
-          height: 100%;
+          height: 70%;
           width: auto;
           object-fit: contain;
           object-position: bottom;
