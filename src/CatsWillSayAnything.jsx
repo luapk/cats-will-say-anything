@@ -304,14 +304,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 28px 20px 40px;
+          padding: 12px 20px 20px;
           position: relative;
           overflow-x: hidden;
         }
 
         .cwsa-brand {
           text-align: center;
-          margin-bottom: 4px;
+          margin-bottom: 0;
         }
         .cwsa-brand-sub {
           font-size: 10px;
@@ -325,9 +325,9 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           font-family: 'FilsonPro', 'Nunito', sans-serif;
           font-weight: 900;
           color: #ffffff;
-          -webkit-text-stroke: 1.5px #000000;
+          -webkit-text-stroke: 3px #000000;
           paint-order: stroke fill;
-          text-shadow: 4px 5px 0 #000000;
+          text-shadow: 5px 6px 0 #000000;
           line-height: 0.92;
           letter-spacing: -1px;
           text-transform: uppercase;
@@ -337,59 +337,71 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .cwsa-title.small { font-size: clamp(24px, 5.5vw, 36px); }
         .cwsa-title-yellow {
           color: #FFED00;
-          -webkit-text-stroke: 1.5px #000000;
+          -webkit-text-stroke: 3px #000000;
           paint-order: stroke fill;
         }
         .cwsa-tagline {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 700;
           color: #6B4F00;
-          margin-top: 8px;
+          margin-top: 4px;
         }
 
         /* Upload zone */
         .upload-zone {
           border: 3px dashed #0A0A0A;
-          border-radius: 50%;
-          width: 200px;
-          height: 200px;
+          border-radius: 16px;
+          width: 100%;
+          height: 220px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: center;
+          justify-content: flex-end;
           cursor: pointer;
           transition: all 0.25s;
-          background: rgba(255,255,255,0.15);
+          background: #FFED00;
           position: relative;
           overflow: hidden;
           flex-shrink: 0;
         }
         .upload-zone:hover {
-          background: rgba(255,255,255,0.45);
-          border-color: #E8001C;
-          transform: scale(1.04);
-        }
-        .upload-zone.drag-over {
-          background: rgba(255,255,255,0.55);
           border-color: #E8001C;
           border-style: solid;
-          transform: scale(1.06);
         }
-        .upload-zone img {
+        .upload-zone.drag-over {
+          border-color: #E8001C;
+          border-style: solid;
+          transform: scale(1.02);
+        }
+        .upload-zone .mascot {
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          height: 100%;
+          width: auto;
+          object-fit: contain;
+          object-position: bottom;
+          pointer-events: none;
+        }
+        .upload-zone .cat-preview {
           width: 100%; height: 100%;
-          border-radius: 50%;
           object-fit: cover;
           display: block;
         }
         .upload-zone-label {
+          position: relative;
+          z-index: 1;
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 1.5px;
           text-transform: uppercase;
           color: #0A0A0A;
-          margin-top: 8px;
+          margin-bottom: 14px;
           text-align: center;
-          padding: 0 20px;
+          padding: 4px 16px;
+          background: rgba(255,237,0,0.85);
+          border-radius: 20px;
           line-height: 1.3;
         }
         .change-photo-btn {
@@ -592,7 +604,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         /* Footer mark */
         .footer-mark {
-          margin-top: 28px;
+          margin-top: 16px;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -643,11 +655,11 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           )}
         </div>
 
-        <div style={{ height: screen === "upload" ? "28px" : "16px", transition: "height 0.3s" }} />
+        <div style={{ height: screen === "upload" ? "10px" : "8px", transition: "height 0.3s" }} />
 
         {/* ── UPLOAD SCREEN ── */}
         {screen === "upload" && (
-          <div className="screen fade-up">
+          <div className="screen fade-up" style={{ gap: "12px" }}>
             <div
               className={`upload-zone ${dragOver ? "drag-over" : ""}`}
               onClick={() => !catImage && fileInputRef.current?.click()}
@@ -657,7 +669,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             >
               {catImage ? (
                 <>
-                  <img src={catImage} alt="Your cat" />
+                  <img src={catImage} alt="Your cat" className="cat-preview" />
                   <button
                     className="change-photo-btn"
                     onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
@@ -665,7 +677,12 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                 </>
               ) : (
                 <>
-                  <span style={{ fontSize: "52px" }}>🐱</span>
+                  <img
+                    src="/cat-mascot.png"
+                    alt=""
+                    className="mascot"
+                    onError={(e) => { e.target.style.display = "none"; }}
+                  />
                   <span className="upload-zone-label">Drop your cat here</span>
                 </>
               )}
