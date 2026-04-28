@@ -105,38 +105,27 @@ async function runMethodB(b64, mime, onStatus) {
 
 // ─── Method C: Replicate configurable (via server proxy) ─────────────────────
 async function runMethodC(b64, mime, modelId, prompt, onStatus) {
-  // Upload image to Replicate file storage first — image_urls needs a real URL
-  onStatus("uploading image...");
-  const uploadR = await fetch("/api/replicate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "upload", b64, mime }),
-  });
-  const uploaded = await uploadR.json();
-  if (!uploaded.urls?.get) throw new Error(`Upload failed: ${uploaded.detail || JSON.stringify(uploaded)}`);
-  const imageUrl = uploaded.urls.get;
-
   onStatus("creating prediction...");
   const hasVersion = modelId.includes(":");
   const url = hasVersion
     ? "https://api.replicate.com/v1/predictions"
     : `https://api.replicate.com/v1/models/${modelId}/predictions`;
 
-  // google/nano-banana-2 uses image_urls (array). Fall back to image for other models.
   const isNanoBanana = modelId.includes("nano-banana");
   const inputPayload = isNanoBanana
     ? {
-        image_urls: [imageUrl],
+        image_urls: [`data:${mime};base64,${b64}`],
         prompt,
         aspect_ratio: "match_input_image",
         output_format: "png",
         resolution: "1K",
       }
-    : { image: imageUrl, prompt };
+    : { image: `data:${mime};base64,${b64}`, prompt };
 
   const body = hasVersion
     ? { version: modelId.split(":")[1], input: inputPayload }
     : { input: inputPayload };
+
   const r = await fetch("/api/replicate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

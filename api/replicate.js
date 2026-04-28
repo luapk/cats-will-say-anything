@@ -8,26 +8,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "POST") {
-      const { action, url, body, b64, mime } = req.body;
-
-      // Upload image to Replicate file storage, returns { urls: { get: "https://..." } }
-      if (action === "upload") {
-        const buf = Buffer.from(b64, "base64");
-        const r = await fetch("https://api.replicate.com/v1/files", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": mime,
-            "Content-Length": String(buf.length),
-          },
-          body: buf,
-        });
-        const text = await r.text();
-        let data;
-        try { data = JSON.parse(text); } catch { data = { error: text }; }
-        return res.status(r.status).json(data);
-      }
-
+      const { url, body } = req.body;
       const r = await fetch(url, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
