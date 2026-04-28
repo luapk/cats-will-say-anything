@@ -246,7 +246,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Roboto:wght@400;700&display=swap');
 
         @font-face {
           font-family: 'FilsonPro';
@@ -280,8 +280,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           to { opacity: 1; transform: scale(1); }
         }
         @keyframes pulse {
-          0%, 100% { transform: scale(1); box-shadow: 0 4px 20px rgba(232,0,28,0.3); }
-          50% { transform: scale(1.03); box-shadow: 0 8px 32px rgba(232,0,28,0.5); }
+          0%, 100% { transform: scale(1); box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+          50% { transform: scale(1.03); box-shadow: 0 8px 32px rgba(0,0,0,0.25); }
         }
         @keyframes dotBounce {
           0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
@@ -300,7 +300,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .cwsa-wrap {
           min-height: 100vh;
           background: #FFD600;
-          font-family: 'Nunito', sans-serif;
+          font-family: 'Roboto', sans-serif;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -335,6 +335,11 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         }
         .cwsa-title.large { font-size: clamp(48px, 11vw, 72px); }
         .cwsa-title.small { font-size: clamp(24px, 5.5vw, 36px); }
+        .cwsa-title-yellow {
+          color: #FFED00;
+          -webkit-text-stroke: 1.5px #000000;
+          paint-order: stroke fill;
+        }
         .cwsa-tagline {
           font-size: 15px;
           font-weight: 700;
@@ -400,28 +405,28 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           letter-spacing: 1px;
           text-transform: uppercase;
           cursor: pointer;
-          font-family: 'Nunito', sans-serif;
+          font-family: 'Roboto', sans-serif;
         }
 
         /* Buttons */
         .btn-red {
-          background: #E8001C;
-          color: white;
-          border: none;
+          background: #ffffff;
+          color: #0A0A0A;
+          border: 2.5px solid #0A0A0A;
           border-radius: 100px;
           padding: 15px 40px;
-          font-family: 'Nunito', sans-serif;
+          font-family: 'Roboto', sans-serif;
           font-size: 17px;
-          font-weight: 900;
+          font-weight: 700;
           cursor: pointer;
           letter-spacing: 0.5px;
           text-transform: uppercase;
-          transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+          transition: background 0.25s ease, transform 0.2s, box-shadow 0.2s;
         }
         .btn-red:hover {
-          background: #C00018;
+          background: #FFED00;
           transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(232,0,28,0.45);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.18);
         }
         .btn-red:active { transform: translateY(0); }
         .btn-red.pulsing { animation: pulse 2.2s ease infinite; }
@@ -432,7 +437,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           border: none;
           border-radius: 100px;
           padding: 15px 40px;
-          font-family: 'Nunito', sans-serif;
+          font-family: 'Roboto', sans-serif;
           font-size: 17px;
           font-weight: 900;
           cursor: pointer;
@@ -449,7 +454,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           border: 2.5px solid #0A0A0A;
           border-radius: 100px;
           padding: 10px 28px;
-          font-family: 'Nunito', sans-serif;
+          font-family: 'Roboto', sans-serif;
           font-size: 14px;
           font-weight: 800;
           cursor: pointer;
@@ -620,17 +625,18 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             src="/logo.png"
             alt="Temptations"
             style={{
-              height: screen === "upload" ? "44px" : "30px",
-              marginBottom: "6px",
+              height: screen === "upload" ? "176px" : "120px",
               transition: "height 0.35s ease",
               display: "block",
               margin: "0 auto 8px",
+              objectFit: "contain",
             }}
             onError={(e) => { e.target.style.display = "none"; }}
           />
           <div className="cwsa-brand-sub">presents</div>
           <h1 className={`cwsa-title ${screen === "upload" ? "large" : "small"}`}>
-            Cats Will<br />Say Anything
+            <span>Cats Will</span><br />
+            <span className="cwsa-title-yellow">Say Anything</span>
           </h1>
           {screen === "upload" && (
             <p className="cwsa-tagline">Even compliment the owner.</p>
