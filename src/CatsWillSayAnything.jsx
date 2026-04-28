@@ -248,8 +248,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap');
 
-        /* Filson Pro is the brand font. Nunito is the fallback for this prototype.
-           Replace font-family references with 'filson-pro', sans-serif in production. */
+        @font-face {
+          font-family: 'FilsonPro';
+          src: url('/fonts/FilsonPro-Bold.woff2') format('woff2'),
+               url('/fonts/FilsonPro-Bold.woff') format('woff');
+          font-weight: 700;
+          font-style: normal;
+          font-display: swap;
+        }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -310,16 +316,19 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           margin-bottom: 2px;
         }
         .cwsa-title {
-          font-family: 'Nunito', sans-serif;
-          font-weight: 900;
-          color: #0A0A0A;
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
+          font-weight: 700;
+          color: #ffffff;
+          -webkit-text-stroke: 1.5px #000000;
+          paint-order: stroke fill;
+          text-shadow: 4px 5px 0 #000000;
           line-height: 0.92;
-          letter-spacing: -2px;
+          letter-spacing: -1px;
           text-transform: uppercase;
           transition: font-size 0.35s ease;
         }
-        .cwsa-title.large { font-size: clamp(42px, 10vw, 64px); }
-        .cwsa-title.small { font-size: clamp(22px, 5vw, 32px); }
+        .cwsa-title.large { font-size: clamp(48px, 11vw, 72px); }
+        .cwsa-title.small { font-size: clamp(24px, 5.5vw, 36px); }
         .cwsa-tagline {
           font-size: 15px;
           font-weight: 700;
@@ -601,7 +610,19 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* Brand header */}
         <div className="cwsa-brand">
-          <div className="cwsa-brand-sub">Temptations™ presents</div>
+          <img
+            src="/temptations-logo.png"
+            alt="Temptations"
+            style={{
+              height: screen === "upload" ? "44px" : "30px",
+              marginBottom: "6px",
+              transition: "height 0.35s ease",
+              display: "block",
+              margin: "0 auto 8px",
+            }}
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
+          <div className="cwsa-brand-sub">presents</div>
           <h1 className={`cwsa-title ${screen === "upload" ? "large" : "small"}`}>
             Cats Will<br />Say Anything
           </h1>
@@ -826,7 +847,12 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* Footer */}
         <div className="footer-mark">
-          <div className="footer-mark-dot">😺</div>
+          <img
+            src="/temptations-logo.png"
+            alt="Temptations"
+            style={{ height: "28px", opacity: 0.5 }}
+            onError={(e) => { e.target.style.display = "none"; }}
+          />
           <div className="footer-mark-text">Cats Will Say Anything</div>
         </div>
 
