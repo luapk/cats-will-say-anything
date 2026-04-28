@@ -318,16 +318,16 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           font-weight: 900;
           letter-spacing: 4px;
           text-transform: uppercase;
-          color: #E8001C;
+          color: #0A0A0A;
           margin-bottom: 2px;
         }
         .cwsa-title {
           font-family: 'FilsonPro', 'Nunito', sans-serif;
           font-weight: 900;
           color: #ffffff;
-          -webkit-text-stroke: 6px #000000;
+          -webkit-text-stroke: 5px #000000;
           paint-order: stroke fill;
-          text-shadow: 5px 6px 0 #000000;
+          text-shadow: 7px 4px 0 #000000;
           line-height: 0.92;
           letter-spacing: -1px;
           text-transform: uppercase;
@@ -337,7 +337,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .cwsa-title.small { font-size: clamp(24px, 5.5vw, 36px); }
         .cwsa-title-yellow {
           color: #FFED00;
-          -webkit-text-stroke: 6px #000000;
+          -webkit-text-stroke: 5px #000000;
           paint-order: stroke fill;
         }
         .cwsa-tagline {
@@ -391,17 +391,20 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           display: block;
         }
         .upload-zone-label {
-          position: relative;
+          position: absolute;
+          top: 33%;
+          left: 50%;
+          transform: translateX(-50%);
           z-index: 1;
           font-size: 11px;
           font-weight: 900;
           letter-spacing: 1.5px;
           text-transform: uppercase;
           color: #0A0A0A;
-          margin-bottom: 14px;
           text-align: center;
+          white-space: nowrap;
           padding: 4px 16px;
-          background: rgba(255,237,0,0.85);
+          background: rgba(255,255,255,0.85);
           border-radius: 20px;
           line-height: 1.3;
         }
@@ -428,9 +431,9 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           border: 2.5px solid #0A0A0A;
           border-radius: 100px;
           padding: 15px 40px;
-          font-family: 'Roboto', sans-serif;
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
           font-size: 17px;
-          font-weight: 700;
+          font-weight: 900;
           cursor: pointer;
           letter-spacing: 0.5px;
           text-transform: uppercase;
@@ -496,7 +499,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           line-height: 1.55;
           font-style: italic;
           font-weight: 700;
-          border-left: 4px solid #E8001C;
+          border-left: 4px solid #0A0A0A;
           opacity: 0;
         }
         .compliment-item.visible {
@@ -552,7 +555,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .divider {
           width: 40px;
           height: 3px;
-          background: #E8001C;
+          background: #0A0A0A;
           border-radius: 2px;
         }
 
@@ -570,11 +573,12 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         /* Section label */
         .section-label {
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
           font-size: 10px;
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 3px;
-          color: #E8001C;
+          color: #0A0A0A;
           margin-bottom: 6px;
         }
 
@@ -803,13 +807,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             {/* CTA */}
             {revealStep >= 3 && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", width: "100%", marginTop: "4px", animation: "fadeUp 0.5s 0.4s ease forwards", opacity: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div className="divider" />
-                  <div className="treats-button">
-                    <span>Tempt<br />ations</span>
-                  </div>
-                  <div className="divider" />
-                </div>
                 <button className="btn-red pulsing" style={{ width: "100%", fontSize: "19px", padding: "18px" }} onClick={createFilm}>
                   🎬 Create Film
                 </button>

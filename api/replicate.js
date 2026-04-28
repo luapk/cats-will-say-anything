@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  const token = process.env.REPLICATE_TOKEN;
+  const token = process.env.REPLICATE_TOKEN || process.env.VITE_REPLICATE_TOKEN;
   if (!token) return res.status(500).json({ error: "REPLICATE_TOKEN not configured" });
 
   if (req.method === "POST") {
