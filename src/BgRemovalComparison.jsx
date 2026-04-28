@@ -128,7 +128,7 @@ async function runMethodC(b64, mime, modelId, prompt, onStatus) {
     ? {
         image_urls: [imageUrl],
         prompt,
-        aspect_ratio: "auto",
+        aspect_ratio: "match_input_image",
         output_format: "png",
         resolution: "1K",
       }
@@ -195,7 +195,7 @@ export default function BgRemovalComparison() {
   const [b64, setB64] = useState(null);
   const [mime, setMime] = useState("image/jpeg");
   const [dragOver, setDragOver] = useState(false);
-  const [modelC, setModelC] = useState("google/nano-banana-2");
+  const [modelC, setModelC] = useState("google/nano-banana-2:pazq5tpd7xrmr0cwkbb8ek35pr");
   const [promptC, setPromptC] = useState(
     "The exact same cat from the reference photo on a clean solid yellow background. Critically preserve without any alteration: the cat's precise fur markings and coat pattern, exact fur colours, eye colour and eye shape, fur length and texture, facial structure, whisker length, age (kitten/adult/senior), body proportions, and any distinctive features or blemishes. The cat must be photorealistally identical to the reference. Clean flat yellow background (#FFD600), studio product photography, professional lighting, sharp focus on the cat."
   );
