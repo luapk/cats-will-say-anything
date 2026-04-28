@@ -265,7 +265,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body { background: #FFC800; }
+        body { background: #FFD600; }
 
         @keyframes pawBounce {
           0%, 100% { transform: translateY(0) rotate(-8deg); }
@@ -299,7 +299,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         .cwsa-wrap {
           min-height: 100vh;
-          background: #FFC800;
+          background: #FFD600;
           font-family: 'Nunito', sans-serif;
           display: flex;
           flex-direction: column;
@@ -428,7 +428,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         .btn-black {
           background: #0A0A0A;
-          color: #FFC800;
+          color: #FFD600;
           border: none;
           border-radius: 100px;
           padding: 15px 40px;
@@ -457,7 +457,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         }
         .btn-ghost:hover {
           background: #0A0A0A;
-          color: #FFC800;
+          color: #FFD600;
         }
 
         /* Card */
@@ -500,7 +500,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           padding: 18px 20px;
           font-family: 'Courier New', monospace;
           font-size: 11.5px;
-          color: #FFC800;
+          color: #FFD600;
           line-height: 1.65;
           text-align: left;
           white-space: pre-wrap;
@@ -513,7 +513,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .treats-button {
           width: 80px; height: 80px;
           border-radius: 50%;
-          background: radial-gradient(circle at 35% 35%, #FFE066, #FFC800 60%, #E8001C);
+          background: radial-gradient(circle at 35% 35%, #FFE066, #FFD600 60%, #E8001C);
           border: 4px solid #E8001C;
           display: flex;
           align-items: center;
@@ -566,7 +566,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           align-items: center;
           gap: 8px;
           background: #0A0A0A;
-          color: #FFC800;
+          color: #FFD600;
           border-radius: 100px;
           padding: 6px 16px 6px 10px;
           font-size: 13px;
