@@ -46,14 +46,11 @@ async function compositeOnYellow(sourceBlob) {
   });
 }
 
-// ─── Utility: Poll Replicate prediction ──────────────────────────────────────
-async function pollReplicate(predId, apiKey, onStatus) {
-  const url = `https://api.replicate.com/v1/predictions/${predId}`;
+// ─── Utility: Poll Replicate prediction via server proxy ─────────────────────
+async function pollReplicate(predId, onStatus) {
   for (let i = 0; i < 90; i++) {
     await new Promise((r) => setTimeout(r, 1500));
-    const r = await fetch(url, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    const r = await fetch(`/api/replicate?id=${predId}`);
     const d = await r.json();
     onStatus(d.status);
     if (d.status === "succeeded") return d.output;
@@ -63,38 +60,30 @@ async function pollReplicate(predId, apiKey, onStatus) {
   throw new Error("Timed out after 135 seconds");
 }
 
-// ─── Method A: @imgly/background-removal (browser WASM) ──────────────────────
+// ─── Method A: @imgly/background-removal (npm package, WASM) ─────────────────
 async function runMethodA(b64, mime, onStatus) {
-  onStatus("loading WASM module...");
-  const mod = await import(
-    "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/background-removal.esm.js"
-  );
-  const { removeBackground } = mod;
+  onStatus("loading model...");
+  const { removeBackground } = await import("@imgly/background-removal");
   onStatus("running segmentation...");
   const inputBlob = b64ToBlob(b64, mime);
   const outputBlob = await removeBackground(inputBlob, {
-    publicPath:
-      "https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/dist/",
     progress: (key, current, total) => {
-      if (total > 0) onStatus(`downloading model ${Math.round((current / total) * 100)}%`);
+      if (total > 0) onStatus(`loading ${Math.round((current / total) * 100)}%`);
     },
   });
   onStatus("compositing on yellow...");
   return await compositeOnYellow(outputBlob);
 }
 
-// ─── Method B: Replicate cjwbw/rembg ─────────────────────────────────────────
-async function runMethodB(b64, mime, apiKey, onStatus) {
+// ─── Method B: Replicate cjwbw/rembg (via server proxy) ──────────────────────
+async function runMethodB(b64, mime, onStatus) {
   onStatus("creating prediction...");
-  const r = await fetch(
-    "https://api.replicate.com/v1/models/cjwbw/rembg/predictions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+  const r = await fetch("/api/replicate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: "https://api.replicate.com/v1/models/cjwbw/rembg/predictions",
+      body: {
         input: {
           image: `data:${mime};base64,${b64}`,
           alpha_matting: true,
@@ -102,43 +91,37 @@ async function runMethodB(b64, mime, apiKey, onStatus) {
           alpha_matting_background_threshold: 10,
           alpha_matting_erode_size: 10,
         },
-      }),
-    }
-  );
+      },
+    }),
+  });
   const pred = await r.json();
   if (!pred.id) throw new Error(pred.detail || JSON.stringify(pred));
-  const output = await pollReplicate(pred.id, apiKey, onStatus);
+  const output = await pollReplicate(pred.id, onStatus);
   onStatus("compositing on yellow...");
   const rawUrl = Array.isArray(output) ? output[0] : output;
   const rawBlob = await urlToBlob(rawUrl);
   return await compositeOnYellow(rawBlob);
 }
 
-// ─── Method C: Replicate configurable (Nano Banana 2 / custom) ───────────────
-async function runMethodC(b64, mime, apiKey, modelId, prompt, onStatus) {
+// ─── Method C: Replicate configurable (via server proxy) ─────────────────────
+async function runMethodC(b64, mime, modelId, prompt, onStatus) {
   onStatus("creating prediction...");
   const hasVersion = modelId.includes(":");
-  const endpoint = hasVersion
+  const url = hasVersion
     ? "https://api.replicate.com/v1/predictions"
     : `https://api.replicate.com/v1/models/${modelId}/predictions`;
-  const inputPayload = {
-    image: `data:${mime};base64,${b64}`,
-    prompt,
-  };
+  const inputPayload = { image: `data:${mime};base64,${b64}`, prompt };
   const body = hasVersion
     ? { version: modelId.split(":")[1], input: inputPayload }
     : { input: inputPayload };
-  const r = await fetch(endpoint, {
+  const r = await fetch("/api/replicate", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, body }),
   });
   const pred = await r.json();
   if (!pred.id) throw new Error(pred.detail || JSON.stringify(pred));
-  const output = await pollReplicate(pred.id, apiKey, onStatus);
+  const output = await pollReplicate(pred.id, onStatus);
   onStatus("compositing on yellow...");
   const rawUrl = Array.isArray(output) ? output[0] : output;
   const rawBlob = await urlToBlob(rawUrl);
@@ -189,8 +172,6 @@ export default function BgRemovalComparison() {
   const [b64, setB64] = useState(null);
   const [mime, setMime] = useState("image/jpeg");
   const [dragOver, setDragOver] = useState(false);
-  const [apiKey, setApiKey] = useState(import.meta.env.VITE_REPLICATE_TOKEN ?? "");
-  const [showKey, setShowKey] = useState(false);
   const [modelC, setModelC] = useState("cjwbw/rembg");
   const [promptC, setPromptC] = useState(
     "cat on clean bright yellow background, studio product photography, flat colour background, professional"
@@ -239,17 +220,11 @@ export default function BgRemovalComparison() {
     };
 
     const runB = async () => {
-      if (!apiKey) {
-        setR("b", { status: "error", error: "No Replicate API key provided", msg: "no key" });
-        return;
-      }
       timerB.reset();
       timerB.start();
       setR("b", { status: "running", msg: "starting..." });
       try {
-        const blob = await runMethodB(b64, mime, apiKey, (msg) =>
-          setR("b", { msg })
-        );
+        const blob = await runMethodB(b64, mime, (msg) => setR("b", { msg }));
         timerB.stop();
         setR("b", { status: "done", result: blob, msg: "complete" });
       } catch (e) {
@@ -259,17 +234,11 @@ export default function BgRemovalComparison() {
     };
 
     const runC = async () => {
-      if (!apiKey) {
-        setR("c", { status: "error", error: "No Replicate API key provided", msg: "no key" });
-        return;
-      }
       timerC.reset();
       timerC.start();
       setR("c", { status: "running", msg: "starting..." });
       try {
-        const blob = await runMethodC(b64, mime, apiKey, modelC, promptC, (msg) =>
-          setR("c", { msg })
-        );
+        const blob = await runMethodC(b64, mime, modelC, promptC, (msg) => setR("c", { msg }));
         timerC.stop();
         setR("c", { status: "done", result: blob, msg: "complete" });
       } catch (e) {
@@ -806,22 +775,6 @@ export default function BgRemovalComparison() {
               </div>
             </div>
 
-            {/* API Key */}
-            <div className="config-group">
-              <div className="config-label">Replicate API key (B + C)</div>
-              <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-                <input
-                  className={`config-input ${!showKey ? "key-hidden" : ""}`}
-                  type="text"
-                  placeholder="r8_..."
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-                <button className="show-key-btn" onClick={() => setShowKey(!showKey)}>
-                  {showKey ? "hide" : "show"}
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Method C config */}
