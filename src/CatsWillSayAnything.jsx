@@ -706,18 +706,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
               </button>
             )}
 
-            <p style={{ fontSize: "12px", fontWeight: 700, color: "#7A5F00", textAlign: "center" }}>
-              They won't like it.<br />They'll do it anyway.
-            </p>
-
-            <div style={{ display: "flex", gap: "20px", alignItems: "center", opacity: 0.55 }}>
-              {["Barry White Core", "French Smooth Talker", "Reluctant Life Coach"].map(v => (
-                <span key={v} style={{ fontSize: "10px", fontWeight: 900, color: "#0A0A0A", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  {VOICES[v].emoji}
-                </span>
-              ))}
-              <span style={{ fontSize: "10px", fontWeight: 900, color: "#0A0A0A" }}>+3 more</span>
-            </div>
           </div>
         )}
 
@@ -874,16 +862,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           </div>
         )}
 
-        {/* Footer */}
-        <div className="footer-mark">
-          <img
-            src="/logo.png"
-            alt="Temptations"
-            style={{ height: "28px", opacity: 0.5 }}
-            onError={(e) => { e.target.style.display = "none"; }}
-          />
-          <div className="footer-mark-text">Cats Will Say Anything</div>
-        </div>
 
       </div>
     </>
