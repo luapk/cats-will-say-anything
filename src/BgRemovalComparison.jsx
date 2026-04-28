@@ -110,7 +110,19 @@ async function runMethodC(b64, mime, modelId, prompt, onStatus) {
   const url = hasVersion
     ? "https://api.replicate.com/v1/predictions"
     : `https://api.replicate.com/v1/models/${modelId}/predictions`;
-  const inputPayload = { image: `data:${mime};base64,${b64}`, prompt };
+
+  // google/nano-banana-2 uses image_urls (array). Fall back to image for other models.
+  const isNanoBanana = modelId.includes("nano-banana");
+  const inputPayload = isNanoBanana
+    ? {
+        image_urls: [`data:${mime};base64,${b64}`],
+        prompt,
+        aspect_ratio: "auto",
+        output_format: "png",
+        resolution: "1K",
+      }
+    : { image: `data:${mime};base64,${b64}`, prompt };
+
   const body = hasVersion
     ? { version: modelId.split(":")[1], input: inputPayload }
     : { input: inputPayload };
