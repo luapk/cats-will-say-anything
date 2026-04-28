@@ -172,9 +172,9 @@ export default function BgRemovalComparison() {
   const [b64, setB64] = useState(null);
   const [mime, setMime] = useState("image/jpeg");
   const [dragOver, setDragOver] = useState(false);
-  const [modelC, setModelC] = useState("cjwbw/rembg");
+  const [modelC, setModelC] = useState("fofr/nano-banana-2");
   const [promptC, setPromptC] = useState(
-    "cat on clean bright yellow background, studio product photography, flat colour background, professional"
+    "The exact same cat from the reference photo on a clean solid yellow background. Critically preserve without any alteration: the cat's precise fur markings and coat pattern, exact fur colours, eye colour and eye shape, fur length and texture, facial structure, whisker length, age (kitten/adult/senior), body proportions, and any distinctive features or blemishes. The cat must be photorealistally identical to the reference. Clean flat yellow background (#FFD600), studio product photography, professional lighting, sharp focus on the cat."
   );
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState({ a: fresh(), b: fresh(), c: fresh() });
@@ -285,8 +285,8 @@ export default function BgRemovalComparison() {
     {
       key: "c",
       label: "C",
-      name: "Replicate: Custom Model",
-      desc: "Generative approach. Use Nano Banana 2 or any img2img model.",
+      name: "Replicate: Nano Banana 2",
+      desc: "Generative img2img. Preserves cat features, replaces background.",
       tag: "CUSTOM",
       tagColor: "#7B00E8",
       timer: timerC,
