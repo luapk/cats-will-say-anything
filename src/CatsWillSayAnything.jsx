@@ -250,8 +250,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         @font-face {
           font-family: 'FilsonPro';
-          src: url('/fonts/FilsonPro-Bold.woff2') format('woff2'),
-               url('/fonts/FilsonPro-Bold.woff') format('woff');
+          src: url('/fonts/FilsonProBlack.otf') format('opentype');
+          font-weight: 900;
+          font-style: normal;
+          font-display: swap;
+        }
+        @font-face {
+          font-family: 'FilsonPro';
+          src: url('/fonts/FilsonProBold.otf') format('opentype');
           font-weight: 700;
           font-style: normal;
           font-display: swap;
@@ -317,7 +323,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         }
         .cwsa-title {
           font-family: 'FilsonPro', 'Nunito', sans-serif;
-          font-weight: 700;
+          font-weight: 900;
           color: #ffffff;
           -webkit-text-stroke: 1.5px #000000;
           paint-order: stroke fill;
@@ -611,7 +617,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         {/* Brand header */}
         <div className="cwsa-brand">
           <img
-            src="/temptations-logo.png"
+            src="/logo.png"
             alt="Temptations"
             style={{
               height: screen === "upload" ? "44px" : "30px",
@@ -848,7 +854,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         {/* Footer */}
         <div className="footer-mark">
           <img
-            src="/temptations-logo.png"
+            src="/logo.png"
             alt="Temptations"
             style={{ height: "28px", opacity: 0.5 }}
             onError={(e) => { e.target.style.display = "none"; }}
