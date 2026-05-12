@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 const VOICES = {
   "Barry White Core": {
@@ -101,6 +102,15 @@ const VOICES = {
 
 const VOICE_KEYS = Object.keys(VOICES);
 
+const VOICE_SLUGS = {
+  "Barry White Core": "barry-white",
+  "French Smooth Talker": "french",
+  "Reluctant Life Coach": "life-coach",
+  "Passive Aggressive HR Manager": "hr-manager",
+  "Early 2000s Sean Connery": "connery",
+  "Noir Detective": "noir",
+};
+
 const ANALYZING_MESSAGES = [
   "Assessing disdain levels...",
   "Measuring contempt per square inch...",
@@ -112,19 +122,33 @@ const ANALYZING_MESSAGES = [
   "Quantifying the eye-roll energy...",
 ];
 
+const GENERATING_STEPS = [
+  "Briefing Kling on the situation...",
+  "Generating your film...",
+  "Cat is approaching the button...",
+  "Paw contact imminent...",
+  "Rendering your masterpiece...",
+  "Almost there...",
+];
+
 export default function CatsWillSayAnything() {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState("upload");
   const [catImage, setCatImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
   const [imageMimeType, setImageMimeType] = useState("image/jpeg");
   const [analysis, setAnalysis] = useState(null);
-  const [videoPrompt, setVideoPrompt] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState("");
+  const [generatingError, setGeneratingError] = useState("");
   const [msgIndex, setMsgIndex] = useState(0);
+  const [genMsgIndex, setGenMsgIndex] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [revealStep, setRevealStep] = useState(0);
+  const [playingIdx, setPlayingIdx] = useState(null);
   const fileInputRef = useRef(null);
   const msgIntervalRef = useRef(null);
+  const genMsgIntervalRef = useRef(null);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (screen === "analyzing") {
@@ -133,6 +157,16 @@ export default function CatsWillSayAnything() {
       }, 1100);
     }
     return () => clearInterval(msgIntervalRef.current);
+  }, [screen]);
+
+  useEffect(() => {
+    if (screen === "generating") {
+      setGenMsgIndex(0);
+      genMsgIntervalRef.current = setInterval(() => {
+        setGenMsgIndex(prev => Math.min(prev + 1, GENERATING_STEPS.length - 1));
+      }, 22000);
+    }
+    return () => clearInterval(genMsgIntervalRef.current);
   }, [screen]);
 
   useEffect(() => {
@@ -145,8 +179,33 @@ export default function CatsWillSayAnything() {
     }
   }, [screen]);
 
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setPlayingIdx(null);
+  };
+
+  const playPreview = (idx) => {
+    if (!analysis) return;
+    const slug = VOICE_SLUGS[analysis.voice];
+    const file = `${slug}-${String(idx + 1).padStart(2, "0")}.mp3`;
+    if (playingIdx === idx) {
+      stopAudio();
+      return;
+    }
+    stopAudio();
+    const audio = new Audio(`/audio/${file}`);
+    audioRef.current = audio;
+    audio.onended = () => setPlayingIdx(null);
+    audio.play().catch(() => {});
+    setPlayingIdx(idx);
+  };
+
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
+    stopAudio();
     setCatImage(URL.createObjectURL(file));
     setImageMimeType(file.type);
     const reader = new FileReader();
@@ -162,6 +221,7 @@ export default function CatsWillSayAnything() {
 
   const analyzeCat = async () => {
     if (!imageBase64) return;
+    stopAudio();
     setScreen("analyzing");
     try {
       const resp = await fetch("/api/chat", {
@@ -206,7 +266,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const parsed = JSON.parse(clean);
       setAnalysis(parsed);
       setScreen("revealed");
-    } catch (err) {
+    } catch {
       const fallback = VOICE_KEYS[Math.floor(Math.random() * VOICE_KEYS.length)];
       setAnalysis({
         voice: fallback,
@@ -217,28 +277,79 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
     }
   };
 
-  const createFilm = () => {
-    const vd = VOICES[analysis.voice];
-    const compliment = vd.compliments[Math.floor(Math.random() * vd.compliments.length)];
-    const prompt = `A cat walks slowly across a clean white floor toward a large circular button, centre-frame. The button is yellow and red, branded with the Temptations logo, sitting flush on the floor like a pet training button. The cat's movement is unhurried. Almost insulting in its lack of urgency. It stops. Looks directly at camera for one beat too long. Then raises one paw and presses the button with the very tip, using the minimum possible effort. The moment the paw makes contact, a voice plays — ${vd.voiceDesc} — and says: "${compliment}" The cat's expression throughout is one of profound, barely-concealed contempt. It does not acknowledge the compliment. Cinematic close-up on paw meeting button. Cut to cat's face: unchanged. Style: clean product aesthetic, shallow depth of field, warm studio lighting, 4K, slight slow motion on the button press. 8 seconds.`;
-    setVideoPrompt({ prompt, compliment, voice: analysis.voice });
-    setScreen("complete");
+  const createFilm = async () => {
+    if (!imageBase64 || !analysis) return;
+    stopAudio();
+    setGeneratingError("");
+    setScreen("generating");
+
+    try {
+      const vd = VOICES[analysis.voice];
+      const idx = Math.floor(Math.random() * vd.compliments.length);
+      const compliment = vd.compliments[idx];
+      const slug = VOICE_SLUGS[analysis.voice];
+      const mp3File = `${slug}-${String(idx + 1).padStart(2, "0")}.mp3`;
+
+      const prompt = `The cat in this photo slowly raises one paw and at exactly 2 seconds into the clip presses a large circular Temptations-branded button on the floor. The cat's expression is one of profound, barely-concealed contempt. The press is deliberate, unhurried. Cinematic close-up on paw meeting button. Clean studio lighting, shallow depth of field, 9:16 portrait.`;
+
+      setGeneratingStep("Briefing Kling on the situation...");
+      const klingResp = await fetch("/api/kling", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: `data:${imageMimeType};base64,${imageBase64}`,
+          prompt,
+        }),
+      });
+      const klingData = await klingResp.json();
+      const taskId = klingData?.data?.task_id;
+      if (!taskId) throw new Error(klingData?.message || klingData?.error || JSON.stringify(klingData));
+
+      // Poll until done (max 3 min)
+      let videoUrl = null;
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        setGeneratingStep(`Generating your film... ${Math.floor(i * 3)}s`);
+
+        const pollResp = await fetch(`/api/kling?id=${taskId}`);
+        const pollData = await pollResp.json();
+        const status = pollData?.data?.task_status;
+
+        if (status === "succeed") {
+          videoUrl = pollData?.data?.task_result?.videos?.[0]?.url;
+          break;
+        }
+        if (status === "failed") {
+          throw new Error(pollData?.data?.task_status_msg || "Kling generation failed");
+        }
+      }
+
+      if (!videoUrl) throw new Error("Generation timed out after 3 minutes");
+
+      const shareParams = new URLSearchParams({
+        v: videoUrl,
+        mp3: mp3File,
+        ts: "2.0",
+        c: compliment,
+        voice: analysis.voice,
+      });
+      navigate(`/share?${shareParams.toString()}`);
+
+    } catch (err) {
+      setGeneratingError(err.message);
+      setScreen("error");
+    }
   };
 
   const reset = () => {
+    stopAudio();
     setScreen("upload");
     setCatImage(null);
     setImageBase64(null);
     setAnalysis(null);
-    setVideoPrompt(null);
-    setCopied(false);
+    setGeneratingError("");
     setRevealStep(0);
-  };
-
-  const copyPrompt = async () => {
-    await navigator.clipboard.writeText(videoPrompt.prompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    setPlayingIdx(null);
   };
 
   const vd = analysis ? VOICES[analysis.voice] : null;
@@ -264,7 +375,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
         body { background: #FFD600; }
 
         @keyframes pawBounce {
@@ -296,6 +406,9 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           70% { transform: scale(1.06); }
           100% { transform: scale(1); opacity: 1; }
         }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
 
         .cwsa-wrap {
           min-height: 100vh;
@@ -309,10 +422,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           overflow-x: hidden;
         }
 
-        .cwsa-brand {
-          text-align: center;
-          margin-bottom: 0;
-        }
+        .cwsa-brand { text-align: center; margin-bottom: 0; }
         .cwsa-brand-sub {
           font-size: 10px;
           font-weight: 900;
@@ -340,14 +450,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           -webkit-text-stroke: 5px #000000;
           paint-order: stroke fill;
         }
-        .cwsa-tagline {
-          font-size: 14px;
-          font-weight: 700;
-          color: #6B4F00;
-          margin-top: 4px;
-        }
+        .cwsa-tagline { font-size: 14px; font-weight: 700; color: #6B4F00; margin-top: 4px; }
 
-        /* Upload zone */
         .upload-zone {
           border: 3px dashed #0A0A0A;
           border-radius: 16px;
@@ -364,23 +468,17 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           overflow: hidden;
           flex-shrink: 0;
         }
-        .upload-zone:hover {
-          background: #FFED00;
-          border-color: #0A0A0A;
-        }
+        .upload-zone:hover { background: #FFED00; }
         .upload-zone.drag-over {
           background: #FFED00;
-          border-color: #0A0A0A;
           border-style: solid;
           transform: scale(1.02);
         }
         .upload-zone .mascot {
           position: absolute;
-          bottom: 0;
-          left: 50%;
+          bottom: 0; left: 50%;
           transform: translateX(-50%);
-          height: 70%;
-          width: auto;
+          height: 70%; width: auto;
           object-fit: contain;
           object-position: bottom;
           pointer-events: none;
@@ -392,8 +490,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         }
         .upload-zone-label {
           position: absolute;
-          top: 33%;
-          left: 50%;
+          top: 33%; left: 50%;
           transform: translateX(-50%);
           z-index: 1;
           font-size: 11px;
@@ -424,7 +521,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           font-family: 'Roboto', sans-serif;
         }
 
-        /* Buttons */
         .btn-red {
           background: #ffffff;
           color: #0A0A0A;
@@ -439,13 +535,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           text-transform: uppercase;
           transition: background 0.25s ease, transform 0.2s, box-shadow 0.2s;
         }
-        .btn-red:hover {
-          background: #FFED00;
-          transform: translateY(-2px);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-        }
+        .btn-red:hover { background: #FFED00; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
         .btn-red:active { transform: translateY(0); }
         .btn-red.pulsing { animation: pulse 2.2s ease infinite; }
+        .btn-red:disabled { opacity: 0.5; cursor: not-allowed; animation: none; }
 
         .btn-black {
           background: #0A0A0A;
@@ -459,10 +552,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           cursor: pointer;
           transition: all 0.2s;
         }
-        .btn-black:hover {
-          background: #222;
-          transform: translateY(-2px);
-        }
+        .btn-black:hover { background: #222; transform: translateY(-2px); }
 
         .btn-ghost {
           background: transparent;
@@ -476,12 +566,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           cursor: pointer;
           transition: all 0.2s;
         }
-        .btn-ghost:hover {
-          background: #0A0A0A;
-          color: #FFD600;
-        }
+        .btn-ghost:hover { background: #0A0A0A; color: #FFD600; }
 
-        /* Card */
         .card {
           background: white;
           border-radius: 20px;
@@ -489,11 +575,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           width: 100%;
         }
 
-        /* Compliment cards */
         .compliment-item {
           background: #FFF8E0;
           border-radius: 12px;
-          padding: 12px 16px;
+          padding: 10px 14px 10px 16px;
           font-size: 13px;
           color: #333;
           line-height: 1.55;
@@ -501,12 +586,29 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           font-weight: 700;
           border-left: 4px solid #0A0A0A;
           opacity: 0;
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
-        .compliment-item.visible {
-          animation: fadeUp 0.45s ease forwards;
-        }
+        .compliment-item.visible { animation: fadeUp 0.45s ease forwards; }
+        .compliment-text { flex: 1; }
 
-        /* Analyzing dots */
+        .play-btn {
+          flex-shrink: 0;
+          width: 30px; height: 30px;
+          border-radius: 50%;
+          border: 2px solid #0A0A0A;
+          background: white;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          transition: all 0.15s;
+        }
+        .play-btn:hover { background: #0A0A0A; color: white; }
+        .play-btn.playing { background: #E8001C; border-color: #E8001C; color: white; }
+
         .dot {
           width: 9px; height: 9px;
           border-radius: 50%;
@@ -514,52 +616,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           animation: dotBounce 1.2s ease infinite;
         }
 
-        /* Prompt box */
-        .prompt-box {
-          background: #0A0A0A;
-          border-radius: 16px;
-          padding: 18px 20px;
-          font-family: 'Courier New', monospace;
-          font-size: 11.5px;
-          color: #FFD600;
-          line-height: 1.65;
-          text-align: left;
-          white-space: pre-wrap;
-          word-break: break-word;
-          max-height: 200px;
-          overflow-y: auto;
-        }
-
-        /* Temptations button graphic */
-        .treats-button {
-          width: 80px; height: 80px;
+        .spinner {
+          width: 40px; height: 40px;
+          border: 4px solid rgba(0,0,0,0.15);
+          border-top-color: #0A0A0A;
           border-radius: 50%;
-          background: radial-gradient(circle at 35% 35%, #FFE066, #FFD600 60%, #E8001C);
-          border: 4px solid #E8001C;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          font-weight: 900;
-          color: white;
-          text-align: center;
-          line-height: 1.2;
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-          flex-shrink: 0;
-          text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+          animation: spin 0.9s linear infinite;
         }
 
-        /* Divider */
-        .divider {
-          width: 40px;
-          height: 3px;
-          background: #0A0A0A;
-          border-radius: 2px;
-        }
-
-        /* Screen containers */
         .screen {
           display: flex;
           flex-direction: column;
@@ -571,7 +635,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .screen.fade-up { animation: fadeUp 0.4s ease forwards; }
         .screen.scale-in { animation: scaleIn 0.4s ease forwards; }
 
-        /* Section label */
         .section-label {
           font-family: 'FilsonPro', 'Nunito', sans-serif;
           font-size: 10px;
@@ -582,7 +645,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           margin-bottom: 6px;
         }
 
-        /* Voice badge */
         .voice-badge {
           display: inline-flex;
           align-items: center;
@@ -598,7 +660,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           animation: buttonPop 0.5s ease forwards;
         }
 
-        /* Cat image circle */
         .cat-circle {
           border-radius: 50%;
           object-fit: cover;
@@ -607,30 +668,30 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           display: block;
         }
 
-        /* Footer mark */
-        .footer-mark {
-          margin-top: 16px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          opacity: 0.5;
+        .error-box {
+          background: #0A0A0A;
+          border-radius: 16px;
+          padding: 20px;
+          width: 100%;
+          color: #FF6B6B;
+          font-family: 'Courier New', monospace;
+          font-size: 12px;
+          line-height: 1.6;
+          word-break: break-word;
         }
-        .footer-mark-dot {
-          width: 32px; height: 32px;
-          background: #E8001C;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 16px;
-        }
-        .footer-mark-text {
-          font-size: 9px;
-          font-weight: 900;
-          letter-spacing: 3px;
-          text-transform: uppercase;
+
+        .gen-step {
+          font-size: 15px;
+          font-weight: 800;
           color: #0A0A0A;
+          text-align: center;
+          min-height: 24px;
+        }
+        .gen-hint {
+          font-size: 12px;
+          font-weight: 700;
+          color: #6B4F00;
+          text-align: center;
         }
       `}</style>
 
@@ -662,7 +723,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         <div style={{ height: screen === "upload" ? "10px" : "8px", transition: "height 0.3s" }} />
 
-        {/* ── UPLOAD SCREEN ── */}
+        {/* ── UPLOAD ── */}
         {screen === "upload" && (
           <div className="screen fade-up" style={{ gap: "12px" }}>
             <div
@@ -682,12 +743,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                 </>
               ) : (
                 <>
-                  <img
-                    src="/cat-mascot.png"
-                    alt=""
-                    className="mascot"
-                    onError={(e) => { e.target.style.display = "none"; }}
-                  />
+                  <img src="/cat-mascot.png" alt="" className="mascot" onError={(e) => { e.target.style.display = "none"; }} />
                   <span className="upload-zone-label">Drop your cat here</span>
                 </>
               )}
@@ -710,30 +766,17 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                 Upload your cat
               </button>
             )}
-
           </div>
         )}
 
-        {/* ── ANALYZING SCREEN ── */}
+        {/* ── ANALYZING ── */}
         {screen === "analyzing" && (
           <div className="screen fade-up" style={{ alignItems: "center" }}>
             {catImage && (
-              <img
-                src={catImage}
-                alt="cat"
-                className="cat-circle"
-                style={{ width: 120, height: 120 }}
-              />
+              <img src={catImage} alt="cat" className="cat-circle" style={{ width: 120, height: 120 }} />
             )}
             <span style={{ fontSize: "44px", animation: "pawBounce 0.9s ease-in-out infinite" }}>🐾</span>
-            <p style={{
-              fontSize: "17px",
-              fontWeight: 800,
-              color: "#0A0A0A",
-              textAlign: "center",
-              minHeight: "26px",
-              transition: "opacity 0.3s"
-            }}>
+            <p style={{ fontSize: "17px", fontWeight: 800, color: "#0A0A0A", textAlign: "center", minHeight: "26px" }}>
               {ANALYZING_MESSAGES[msgIndex]}
             </p>
             <div style={{ display: "flex", gap: "8px" }}>
@@ -744,11 +787,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           </div>
         )}
 
-        {/* ── REVEALED SCREEN ── */}
+        {/* ── REVEALED ── */}
         {screen === "revealed" && vd && analysis && (
           <div className="screen scale-in" style={{ gap: "14px" }}>
 
-            {/* Cat + Voice identity */}
             <div style={{ display: "flex", alignItems: "center", gap: "16px", width: "100%" }}>
               {catImage && (
                 <img src={catImage} alt="cat" className="cat-circle" style={{ width: 80, height: 80 }} />
@@ -762,21 +804,13 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                   </div>
                 )}
                 {revealStep >= 2 && (
-                  <p style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "#6B4F00",
-                    fontStyle: "italic",
-                    marginTop: "6px",
-                    animation: "revealSlide 0.4s ease forwards"
-                  }}>
+                  <p style={{ fontSize: "12px", fontWeight: 700, color: "#6B4F00", fontStyle: "italic", marginTop: "6px", animation: "revealSlide 0.4s ease forwards" }}>
                     {analysis.tagline}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Reasoning */}
             {revealStep >= 2 && (
               <div className="card" style={{ animation: "fadeUp 0.4s ease forwards" }}>
                 <div className="section-label">Why this voice</div>
@@ -786,10 +820,9 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
               </div>
             )}
 
-            {/* Sample compliments */}
             {revealStep >= 3 && (
               <div style={{ width: "100%" }}>
-                <div className="section-label">Sample compliments</div>
+                <div className="section-label">Sample compliments — tap ▶ to preview</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   {vd.compliments.slice(0, 3).map((c, i) => (
                     <div
@@ -797,17 +830,27 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                       className={`compliment-item ${revealStep >= 3 ? "visible" : ""}`}
                       style={{ animationDelay: `${i * 0.12}s` }}
                     >
-                      "{c}"
+                      <span className="compliment-text">"{c}"</span>
+                      <button
+                        className={`play-btn ${playingIdx === i ? "playing" : ""}`}
+                        onClick={() => playPreview(i)}
+                        title={playingIdx === i ? "Stop" : "Preview voice"}
+                      >
+                        {playingIdx === i ? "■" : "▶"}
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* CTA */}
             {revealStep >= 3 && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", width: "100%", marginTop: "4px", animation: "fadeUp 0.5s 0.4s ease forwards", opacity: 0 }}>
-                <button className="btn-red pulsing" style={{ width: "100%", fontSize: "19px", padding: "18px" }} onClick={createFilm}>
+                <button
+                  className="btn-red pulsing"
+                  style={{ width: "100%", fontSize: "19px", padding: "18px" }}
+                  onClick={createFilm}
+                >
                   🎬 Create Film
                 </button>
                 <button className="btn-ghost" onClick={reset}>Try another cat</button>
@@ -816,50 +859,45 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           </div>
         )}
 
-        {/* ── COMPLETE SCREEN ── */}
-        {screen === "complete" && videoPrompt && (
-          <div className="screen scale-in" style={{ gap: "14px" }}>
-
-            <div style={{ textAlign: "center" }}>
-              <span style={{ fontSize: "42px", display: "block", animation: "pawBounce 0.8s ease 3" }}>🎬</span>
-              <div className="section-label" style={{ marginTop: "8px" }}>Film Brief Generated</div>
-              <h2 style={{ fontSize: "20px", fontWeight: 900, color: "#0A0A0A" }}>{videoPrompt.voice}</h2>
-            </div>
-
-            <div className="card" style={{ textAlign: "center" }}>
-              <div className="section-label">Your cat will say</div>
-              <p style={{ fontSize: "17px", fontWeight: 800, color: "#0A0A0A", lineHeight: 1.45, fontStyle: "italic" }}>
-                "{videoPrompt.compliment}"
-              </p>
-            </div>
-
-            <div style={{ width: "100%" }}>
-              <div className="section-label">Video prompt — paste into Kling / Runway / Luma</div>
-              <div className="prompt-box">{videoPrompt.prompt}</div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-              <button className="btn-black" style={{ width: "100%" }} onClick={copyPrompt}>
-                {copied ? "✓ Copied to clipboard" : "Copy video prompt"}
-              </button>
-              <button
-                className="btn-red"
-                style={{ width: "100%" }}
-                onClick={() => {
-                  const vd2 = VOICES[analysis.voice];
-                  const newC = vd2.compliments[Math.floor(Math.random() * vd2.compliments.length)];
-                  const newPrompt = `A cat walks slowly across a clean white floor toward a large circular button, centre-frame. The button is yellow and red, branded with the Temptations logo, sitting flush on the floor like a pet training button. The cat's movement is unhurried. Almost insulting in its lack of urgency. It stops. Looks directly at camera for one beat too long. Then raises one paw and presses the button with the very tip, using the minimum possible effort. The moment the paw makes contact, a voice plays — ${vd2.voiceDesc} — and says: "${newC}" The cat's expression throughout is one of profound, barely-concealed contempt. It does not acknowledge the compliment. Cinematic close-up on paw meeting button. Cut to cat's face: unchanged. Style: clean product aesthetic, shallow depth of field, warm studio lighting, 4K, slight slow motion on the button press. 8 seconds.`;
-                  setVideoPrompt({ prompt: newPrompt, compliment: newC, voice: analysis.voice });
-                  setCopied(false);
-                }}
-              >
-                Different compliment →
-              </button>
-              <button className="btn-ghost" onClick={reset} style={{ width: "100%" }}>Start again</button>
+        {/* ── GENERATING ── */}
+        {screen === "generating" && (
+          <div className="screen fade-up" style={{ alignItems: "center", gap: "20px" }}>
+            {catImage && (
+              <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
+            )}
+            <div className="spinner" />
+            <p className="gen-step">{generatingStep || GENERATING_STEPS[genMsgIndex]}</p>
+            <p className="gen-hint">This takes 1–2 minutes. Don't close the tab.</p>
+            <div style={{ display: "flex", gap: "8px" }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} className="dot" style={{ animationDelay: `${i * 0.18}s` }} />
+              ))}
             </div>
           </div>
         )}
 
+        {/* ── ERROR ── */}
+        {screen === "error" && (
+          <div className="screen fade-up" style={{ gap: "16px" }}>
+            <span style={{ fontSize: "42px" }}>😾</span>
+            <h2 style={{ fontSize: "20px", fontWeight: 900, color: "#0A0A0A", textAlign: "center" }}>
+              Something went wrong
+            </h2>
+            <div className="error-box">{generatingError}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+              <button
+                className="btn-red"
+                style={{ width: "100%" }}
+                onClick={() => { setScreen("revealed"); setGeneratingError(""); }}
+              >
+                Try again
+              </button>
+              <button className="btn-ghost" style={{ width: "100%" }} onClick={reset}>
+                Start over
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
     </>
