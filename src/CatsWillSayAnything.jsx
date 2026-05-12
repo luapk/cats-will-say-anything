@@ -145,6 +145,7 @@ export default function CatsWillSayAnything() {
   const [dragOver, setDragOver] = useState(false);
   const [revealStep, setRevealStep] = useState(0);
   const [playingIdx, setPlayingIdx] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const fileInputRef = useRef(null);
   const msgIntervalRef = useRef(null);
   const genMsgIntervalRef = useRef(null);
@@ -187,20 +188,33 @@ export default function CatsWillSayAnything() {
     setPlayingIdx(null);
   };
 
-  const playPreview = (idx) => {
-    if (!analysis) return;
-    const slug = VOICE_SLUGS[analysis.voice];
-    const file = `${slug}-${String(idx + 1).padStart(2, "0")}.mp3`;
+  const playPreview = async (idx) => {
+    if (!analysis || previewLoading) return;
     if (playingIdx === idx) {
       stopAudio();
       return;
     }
     stopAudio();
-    const audio = new Audio(`/audio/${file}`);
-    audioRef.current = audio;
-    audio.onended = () => setPlayingIdx(null);
-    audio.play().catch(() => {});
-    setPlayingIdx(idx);
+    setPreviewLoading(true);
+    try {
+      const vd = VOICES[analysis.voice];
+      const resp = await fetch("/api/elevenlabs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice: analysis.voice, text: vd.compliments[idx] }),
+      });
+      const { audioBase64, audioMime, error } = await resp.json();
+      if (error) throw new Error(error);
+      const audio = new Audio(`data:${audioMime};base64,${audioBase64}`);
+      audioRef.current = audio;
+      audio.onended = () => setPlayingIdx(null);
+      audio.play().catch(() => {});
+      setPlayingIdx(idx);
+    } catch {
+      // silently fail preview
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleFile = (file) => {
@@ -287,49 +301,54 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const vd = VOICES[analysis.voice];
       const idx = Math.floor(Math.random() * vd.compliments.length);
       const compliment = vd.compliments[idx];
-      const slug = VOICE_SLUGS[analysis.voice];
-      const mp3File = `${slug}-${String(idx + 1).padStart(2, "0")}.mp3`;
 
-      const prompt = `The cat in this photo slowly raises one paw and at exactly 2 seconds into the clip presses a large circular Temptations-branded button on the floor. The cat's expression is one of profound, barely-concealed contempt. The press is deliberate, unhurried. Cinematic close-up on paw meeting button. Clean studio lighting, shallow depth of field, 9:16 portrait.`;
-
-      setGeneratingStep("Briefing Kling on the situation...");
+      // Step 1: Start Kling video generation
+      setGeneratingStep("Sending your cat to Kling...");
       const klingResp = await fetch("/api/kling", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           image: `data:${imageMimeType};base64,${imageBase64}`,
-          prompt,
+          prompt: "The cat in this photo slowly raises one paw and at exactly 2 seconds presses a large circular Temptations-branded button on the floor. The press is unhurried, deliberate, minimum effort. The cat's expression is one of profound barely-concealed contempt. Cinematic close-up on paw meeting button. Clean studio setting, warm lighting, 9:16 portrait.",
         }),
       });
       const klingData = await klingResp.json();
       const taskId = klingData?.data?.task_id;
       if (!taskId) throw new Error(klingData?.message || klingData?.error || JSON.stringify(klingData));
 
-      // Poll until done (max 3 min)
-      let videoUrl = null;
+      // Step 2: Poll Kling until done (max 3 min)
+      let rawVideoUrl = null;
       for (let i = 0; i < 60; i++) {
         await new Promise(r => setTimeout(r, 3000));
-        setGeneratingStep(`Generating your film... ${Math.floor(i * 3)}s`);
-
+        setGeneratingStep(`Generating film... ${Math.floor(i * 3)}s`);
         const pollResp = await fetch(`/api/kling?id=${taskId}`);
         const pollData = await pollResp.json();
         const status = pollData?.data?.task_status;
-
         if (status === "succeed") {
-          videoUrl = pollData?.data?.task_result?.videos?.[0]?.url;
+          rawVideoUrl = pollData?.data?.task_result?.videos?.[0]?.url;
           break;
         }
-        if (status === "failed") {
-          throw new Error(pollData?.data?.task_status_msg || "Kling generation failed");
-        }
+        if (status === "failed") throw new Error(pollData?.data?.task_status_msg || "Kling generation failed");
       }
+      if (!rawVideoUrl) throw new Error("Generation timed out after 3 minutes");
 
-      if (!videoUrl) throw new Error("Generation timed out after 3 minutes");
+      // Step 3: Bake ElevenLabs voice into video at 2s, store to Vercel Blob
+      setGeneratingStep("Recording voice and baking into film...");
+      const bakeResp = await fetch("/api/bake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          videoUrl: rawVideoUrl,
+          voice: analysis.voice,
+          text: compliment,
+          audioOffsetMs: 2000,
+        }),
+      });
+      const bakeData = await bakeResp.json();
+      if (!bakeResp.ok || !bakeData.url) throw new Error(bakeData.error || "Bake failed");
 
       const shareParams = new URLSearchParams({
-        v: videoUrl,
-        mp3: mp3File,
-        ts: "2.0",
+        v: bakeData.url,
         c: compliment,
         voice: analysis.voice,
       });
@@ -822,7 +841,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
             {revealStep >= 3 && (
               <div style={{ width: "100%" }}>
-                <div className="section-label">Sample compliments — tap ▶ to preview</div>
+                <div className="section-label">Sample compliments — tap ▶ to hear the voice</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   {vd.compliments.slice(0, 3).map((c, i) => (
                     <div
@@ -834,9 +853,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                       <button
                         className={`play-btn ${playingIdx === i ? "playing" : ""}`}
                         onClick={() => playPreview(i)}
-                        title={playingIdx === i ? "Stop" : "Preview voice"}
+                        disabled={previewLoading && playingIdx !== i}
+                        title={playingIdx === i ? "Stop" : "Hear this line"}
                       >
-                        {playingIdx === i ? "■" : "▶"}
+                        {previewLoading && playingIdx !== i ? "…" : playingIdx === i ? "■" : "▶"}
                       </button>
                     </div>
                   ))}

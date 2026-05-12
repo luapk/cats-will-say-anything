@@ -1,52 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 
 export default function SharePage() {
   const [params] = useSearchParams();
   const videoUrl = params.get("v");
-  const mp3File = params.get("mp3");
-  const audioOffset = parseFloat(params.get("ts") || "2.0");
   const compliment = params.get("c");
   const voice = params.get("voice");
 
-  const videoRef = useRef(null);
-  const audioRef = useRef(null);
-  const firedRef = useRef(false);
   const [shared, setShared] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const video = videoRef.current;
-    const audio = audioRef.current;
-    if (!video || !audio) return;
-
-    const onTimeUpdate = () => {
-      if (!firedRef.current && video.currentTime >= audioOffset) {
-        firedRef.current = true;
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      }
-    };
-
-    const onSeeked = () => { firedRef.current = video.currentTime >= audioOffset; };
-    const onEnded = () => { firedRef.current = false; };
-
-    video.addEventListener("timeupdate", onTimeUpdate);
-    video.addEventListener("seeked", onSeeked);
-    video.addEventListener("ended", onEnded);
-    return () => {
-      video.removeEventListener("timeupdate", onTimeUpdate);
-      video.removeEventListener("seeked", onSeeked);
-      video.removeEventListener("ended", onEnded);
-    };
-  }, [audioOffset]);
-
   const handleShare = async () => {
     const url = window.location.href;
-    const text = `My cat has something to say 🐾`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Cats Will Say Anything", text, url });
+        await navigator.share({
+          title: "My cat has something to say",
+          text: `"${compliment}" — Cats Will Say Anything`,
+          url,
+        });
         setShared(true);
       } catch { /* user cancelled */ }
     } else {
@@ -59,14 +31,15 @@ export default function SharePage() {
   if (!videoUrl) {
     return (
       <div style={{
-        background: "#FFD600", minHeight: "100vh", display: "flex",
-        flexDirection: "column", alignItems: "center", justifyContent: "center",
-        gap: 20, fontFamily: "sans-serif", padding: 24
+        background: "#FFD600", minHeight: "100vh",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        gap: 20, fontFamily: "sans-serif", padding: 24,
       }}>
         <p style={{ fontSize: 20, fontWeight: 900 }}>No film found.</p>
         <Link to="/" style={{
           background: "#0A0A0A", color: "#FFD600", textDecoration: "none",
-          borderRadius: 100, padding: "14px 32px", fontWeight: 900, fontSize: 16
+          borderRadius: 100, padding: "14px 32px", fontWeight: 900, fontSize: 16,
         }}>Make yours →</Link>
       </div>
     );
@@ -93,7 +66,7 @@ export default function SharePage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 0 0 32px;
+          padding-bottom: 32px;
           font-family: 'Nunito', sans-serif;
         }
         .sp-header {
@@ -106,7 +79,6 @@ export default function SharePage() {
         .sp-video-wrap {
           width: 100%;
           max-width: 420px;
-          position: relative;
           background: #111;
         }
         .sp-video {
@@ -115,7 +87,7 @@ export default function SharePage() {
           max-height: 72vh;
           object-fit: contain;
         }
-        .sp-compliment {
+        .sp-info {
           width: 100%;
           max-width: 420px;
           padding: 20px 24px 0;
@@ -136,10 +108,15 @@ export default function SharePage() {
           font-style: italic;
           line-height: 1.5;
         }
+        .sp-divider {
+          width: 40px; height: 2px;
+          background: #333; border-radius: 2px;
+          margin-top: 16px;
+        }
         .sp-actions {
           width: 100%;
           max-width: 420px;
-          padding: 24px 20px 0;
+          padding: 20px 20px 0;
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -180,20 +157,6 @@ export default function SharePage() {
           transition: all 0.2s;
         }
         .btn-try:hover { background: #FFD600; color: #0A0A0A; }
-        .sp-brand {
-          font-family: 'FilsonPro', 'Nunito', sans-serif;
-          font-weight: 900;
-          color: #FFD600;
-          font-size: 13px;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-        }
-        .sp-divider {
-          width: 40px; height: 2px;
-          background: #333;
-          border-radius: 2px;
-          margin: 4px auto 0;
-        }
       `}</style>
 
       <div className="sp-wrap">
@@ -202,37 +165,25 @@ export default function SharePage() {
             src="/logo.png"
             alt="Temptations"
             style={{ height: 56, objectFit: "contain" }}
-            onError={(e) => {
-              e.target.style.display = "none";
-              e.target.nextSibling.style.display = "block";
-            }}
+            onError={(e) => { e.target.style.display = "none"; }}
           />
-          <span className="sp-brand" style={{ display: "none" }}>Temptations</span>
         </div>
 
         <div className="sp-video-wrap">
+          {/* Audio is baked into the video — no separate audio element needed */}
           <video
-            ref={videoRef}
             src={videoUrl}
             className="sp-video"
             controls
             playsInline
             autoPlay
-            muted={false}
           />
-          {mp3File && (
-            <audio
-              ref={audioRef}
-              src={`/audio/${mp3File}`}
-              preload="auto"
-            />
-          )}
         </div>
 
-        {compliment && (
-          <div className="sp-compliment">
+        {(compliment || voice) && (
+          <div className="sp-info">
             {voice && <div className="sp-voice-label">{voice} says:</div>}
-            <p className="sp-compliment-text">"{compliment}"</p>
+            {compliment && <p className="sp-compliment-text">"{compliment}"</p>}
             <div className="sp-divider" />
           </div>
         )}
