@@ -6,110 +6,26 @@ const VOICES = {
     emoji: "🎵",
     voiceDesc: "deep, velvet, impossibly smooth baritone — every word arrives slightly after you expected it",
     compliments: [
-      "You... are doing your best. And that is... enough.",
-      "I have seen you. And I have chosen... to remain.",
-      "Your cooking. Is not offensive. To me. Tonight.",
-      "You opened the window when I asked. That is... a quality.",
-      "For a human... you are tolerable. In the evenings.",
-      "I notice... you made the bed today. That was... something.",
-      "You have a warmth about you. That I occasionally appreciate... from a distance.",
-      "Your voice is not unpleasant. When you are not talking too much.",
-      "I have considered leaving. And I have not. That is... my gift to you.",
-      "You try. And sometimes... that is visible."
+      "I have seen you. And I have chosen... to remain."
     ]
   },
   "French Smooth Talker": {
     emoji: "🥐",
     voiceDesc: "silky French accent, existentially resigned, as if complimenting you is a philosophical act they find distasteful but necessary",
     compliments: [
-      "You are not, how do I say... the worst thing in this apartment.",
-      "Your sense of style is limited. But it is yours. This I respect. A little.",
-      "Other people's owners are also mediocre. You are mediocre in a... familiar way.",
-      "I have seen you cry at the television. I did not leave the room. This is love, non?",
-      "You smell of effort. I find this... not entirely unpleasant.",
-      "In France, we would not keep you. But this is not France. So here we are.",
-      "You have a good heart. It is not your fault you also have that haircut.",
-      "When you laugh, it is annoying. But also, somehow, it is yours. C'est la vie.",
-      "You are improving. Slowly. It is noticeable. Barely.",
-      "You ask so little in return. This is, perhaps, your greatest quality."
-    ]
-  },
-  "Reluctant Life Coach": {
-    emoji: "📋",
-    voiceDesc: "reluctantly encouraging, like Tony Robbins halfway through a particularly disappointing Tuesday",
-    compliments: [
-      "You showed up today. That's literally it. And today, that's enough.",
-      "Growth isn't linear. I can see that. From your life. Very clearly.",
-      "Not everyone needs to be great. Some people just need to be present. You're present.",
-      "I'm going to say something and I need you to really hear it: you're fine. You're just fine.",
-      "Other people gave up. You didn't. I'm choosing to focus on that.",
-      "You have potential. In the sense that potential is, by definition, unrealised. But it's there.",
-      "I believe in you. I want that on record. Even on days when the evidence is limited.",
-      "You're doing a good job. Of several things. I won't specify which ones right now. But several.",
-      "The important thing is you tried. And that you'll try again. Tomorrow. Probably.",
-      "Some people never learn. You learn. Eventually. That puts you ahead of some people."
-    ]
-  },
-  "Passive Aggressive HR Manager": {
-    emoji: "📎",
-    voiceDesc: "measured, flat corporate delivery — the tone of someone reading a performance review they didn't enjoy writing",
-    compliments: [
-      "Going forward, your contributions to this household have been noted. And logged.",
-      "This is not formal feedback. But if it were, I would say you are meeting most expectations.",
-      "I've reviewed your performance over the past year and I wouldn't say I have concerns, exactly.",
-      "Your communication style is very... you. I think that's something to lean into.",
-      "We're not saying you need to change. We're just saying there's a development plan available.",
-      "You bring a unique energy to this space. Unique is the word I would use.",
-      "In the interests of transparency, you are someone I would describe as satisfactory.",
-      "Thank you for your continued commitment to being here. It has been observed.",
-      "Your effort is visible. That's something I can say with confidence.",
-      "I wouldn't say you're the best person in this home. I also wouldn't say you're the worst."
-    ]
-  },
-  "Early 2000s Sean Connery": {
-    emoji: "🥃",
-    voiceDesc: "imperious, vaguely disappointed, with the cadence of a man who has never once been wrong and suspects today will be no different",
-    compliments: [
-      "You have done adequately. I will not elaborate on this.",
-      "In my experience, most people are disappointing. You are less disappointing than most.",
-      "You remembered to feed me. This is the minimum. And yet. Here we are.",
-      "I have known greater people. I have also known worse. You are somewhere in that range.",
-      "You are not entirely without merit. Take that. Keep it. Use it wisely.",
-      "Your determination is noted. I do not share it. But I note it.",
-      "A lesser person would have given up by now. You have not. That is... something.",
-      "You have managed today. Tomorrow remains to be seen. But today. Yes.",
-      "I expect more. I always expect more. But what you gave was... sufficient.",
-      "You have stopped trying to impress me. I find this... almost refreshing."
+      "I have seen you cry at the television. I did not leave the room. This is love, non?"
     ]
   },
   "Noir Detective": {
     emoji: "🔦",
     voiceDesc: "gravelly and world-weary, like a man who has seen too much rain and too many owners and isn't sure which was worse",
     compliments: [
-      "In this city, everyone's hiding something. You're hiding very little. I respect that.",
-      "I've seen good people. I've seen bad people. You're somewhere I don't usually see.",
-      "You didn't lie to me today. In my line of work, that's a compliment.",
-      "You keep going. I've seen enough to know that's rarer than it sounds.",
-      "You're not what I expected. You're slightly better. Don't let it go to your head.",
-      "Every case teaches you something. You've taught me patience. Specifically, patience.",
-      "I've watched you. From across the room. You're not the problem. You're never the problem.",
-      "In forty years on the job I've met maybe three people I'd call decent. You're adjacent to that.",
-      "The truth about you is this: you mean well. In this city, that still counts for something.",
-      "I came in expecting the worst. As I always do. You weren't that. Today, you weren't that."
+      "The truth about you is this: you mean well. In this city, that still counts for something."
     ]
   }
 };
 
 const VOICE_KEYS = Object.keys(VOICES);
-
-const VOICE_SLUGS = {
-  "Barry White Core": "barry-white",
-  "French Smooth Talker": "french",
-  "Reluctant Life Coach": "life-coach",
-  "Passive Aggressive HR Manager": "hr-manager",
-  "Early 2000s Sean Connery": "connery",
-  "Noir Detective": "noir",
-};
 
 const ANALYZING_MESSAGES = [
   "Assessing disdain levels...",
@@ -258,9 +174,6 @@ export default function CatsWillSayAnything() {
 Assign this cat ONE of these voice archetypes based purely on their vibe, expression, posture and general energy:
 - Barry White Core
 - French Smooth Talker
-- Reluctant Life Coach
-- Passive Aggressive HR Manager
-- Early 2000s Sean Connery
 - Noir Detective
 
 Write 2-3 funny, specific, observational sentences explaining WHY. Reference the cat's actual appearance — fur, expression, posture, eyes. Be affectionately cutting.

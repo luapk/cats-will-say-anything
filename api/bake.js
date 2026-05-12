@@ -13,12 +13,9 @@ export const config = {
 const execFileAsync = promisify(execFile);
 
 const VOICE_DEFAULTS = {
-  "Barry White Core":               process.env.ELEVEN_VOICE_BARRY_WHITE   || "pNInz6obpgDQGcFmaJgB",
-  "French Smooth Talker":           process.env.ELEVEN_VOICE_FRENCH        || "ErXwobaYiN019PkySvjV",
-  "Reluctant Life Coach":           process.env.ELEVEN_VOICE_LIFE_COACH    || "TxGEqnHWrfWFTfGW9XjX",
-  "Passive Aggressive HR Manager":  process.env.ELEVEN_VOICE_HR_MANAGER    || "EXAVITQu4vr4xnSDxMaL",
-  "Early 2000s Sean Connery":       process.env.ELEVEN_VOICE_CONNERY       || "VR6AewLTigWG4xSOukaG",
-  "Noir Detective":                 process.env.ELEVEN_VOICE_NOIR          || "yoZ06aMxZJJ28mfd3POQ",
+  "Barry White Core":     process.env.ELEVEN_VOICE_BARRY_WHITE || "pNInz6obpgDQGcFmaJgB",
+  "French Smooth Talker": process.env.ELEVEN_VOICE_FRENCH      || "ErXwobaYiN019PkySvjV",
+  "Noir Detective":       process.env.ELEVEN_VOICE_NOIR        || "yoZ06aMxZJJ28mfd3POQ",
 };
 
 async function generateAudio(voice, text) {

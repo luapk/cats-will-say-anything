@@ -1,12 +1,9 @@
 // Maps voice archetype names to ElevenLabs voice IDs.
 // Override any with ELEVEN_VOICE_{KEY} environment variables.
 const VOICE_DEFAULTS = {
-  "Barry White Core":               process.env.ELEVEN_VOICE_BARRY_WHITE   || "pNInz6obpgDQGcFmaJgB", // Adam
-  "French Smooth Talker":           process.env.ELEVEN_VOICE_FRENCH        || "ErXwobaYiN019PkySvjV", // Antoni
-  "Reluctant Life Coach":           process.env.ELEVEN_VOICE_LIFE_COACH    || "TxGEqnHWrfWFTfGW9XjX", // Josh
-  "Passive Aggressive HR Manager":  process.env.ELEVEN_VOICE_HR_MANAGER    || "EXAVITQu4vr4xnSDxMaL", // Bella
-  "Early 2000s Sean Connery":       process.env.ELEVEN_VOICE_CONNERY       || "VR6AewLTigWG4xSOukaG", // Arnold
-  "Noir Detective":                 process.env.ELEVEN_VOICE_NOIR          || "yoZ06aMxZJJ28mfd3POQ", // Sam
+  "Barry White Core":     process.env.ELEVEN_VOICE_BARRY_WHITE || "pNInz6obpgDQGcFmaJgB", // Adam
+  "French Smooth Talker": process.env.ELEVEN_VOICE_FRENCH      || "ErXwobaYiN019PkySvjV", // Antoni
+  "Noir Detective":       process.env.ELEVEN_VOICE_NOIR        || "yoZ06aMxZJJ28mfd3POQ", // Sam
 };
 
 export default async function handler(req, res) {
