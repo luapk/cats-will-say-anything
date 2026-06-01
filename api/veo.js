@@ -1,9 +1,6 @@
-// Veo 3.1 — image-to-video with native audio (dialogue baked in).
-// POST  { imageBase64, imageMimeType, voice, compliment, voiceStyle }
-//       → { operationName }
-// GET   ?op={operationName}
-//       → { status: "pending" | "done" | "failed", url?, error? }
-//       When "done": downloads video from Google, stores to Vercel Blob, returns url.
+// Veo 3.1 — image-to-video.
+// POST  { imageBase64, imageMimeType, voiceStyle, compliment }  → { operationName }
+// GET   ?op={operationName} → { status: "pending"|"done"|"failed", url?, error? }
 
 import { put } from "@vercel/blob";
 import { randomBytes } from "crypto";
@@ -11,13 +8,17 @@ import { randomBytes } from "crypto";
 const VEO_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const VEO_MODEL = "veo-3.1-generate-preview";
 
-function apiKey() {
-  const k = process.env.GOOGLE_API_KEY;
-  if (!k) throw new Error("GOOGLE_API_KEY not configured");
-  return k;
+// Robustly turn any Google error response shape into a plain string.
+function extractErrorMessage(data) {
+  const e = data?.error;
+  if (!e) return JSON.stringify(data);
+  if (typeof e === "string") return e;
+  // e.message can be null on some Google error shapes — fall through to status/details
+  const msg = e.message || e.status || e.code;
+  if (msg) return String(msg);
+  return JSON.stringify(e);
 }
 
-// Build the full cinematic prompt, embedding voice style + dialogue.
 function buildPrompt(voiceStyle, compliment) {
   return (
     `The cat from the reference photo walks slowly across a bright solid yellow background ` +
@@ -32,79 +33,62 @@ function buildPrompt(voiceStyle, compliment) {
   );
 }
 
-// Extract video URL from the various shapes the Veo response can take.
 function extractVideoUrl(response) {
-  // Shape A: response.generateVideoResponse.generatedSamples[0].video.uri
   const samples =
     response?.generateVideoResponse?.generatedSamples ||
     response?.generatedSamples;
   if (samples?.[0]?.video?.uri) return { uri: samples[0].video.uri };
-  if (samples?.[0]?.video?.bytesBase64Encoded) {
-    return { b64: samples[0].video.bytesBase64Encoded };
-  }
-  // Shape B: response.videos[0].uri
+  if (samples?.[0]?.video?.bytesBase64Encoded) return { b64: samples[0].video.bytesBase64Encoded };
   if (response?.videos?.[0]?.uri) return { uri: response.videos[0].uri };
-  if (response?.videos?.[0]?.bytesBase64Encoded) {
-    return { b64: response.videos[0].bytesBase64Encoded };
-  }
+  if (response?.videos?.[0]?.bytesBase64Encoded) return { b64: response.videos[0].bytesBase64Encoded };
   return null;
 }
 
 export const config = {
-  api: {
-    bodyParser: { sizeLimit: "20mb" },
-  },
+  api: { bodyParser: { sizeLimit: "20mb" } },
 };
 
 export default async function handler(req, res) {
-  const key = (() => { try { return apiKey(); } catch (e) { return null; } })();
+  const key = process.env.GOOGLE_API_KEY;
   if (!key) return res.status(500).json({ error: "GOOGLE_API_KEY not configured" });
 
   // ── POST: start generation ──────────────────────────────────────────────
   if (req.method === "POST") {
-    const { imageBase64, imageMimeType = "image/jpeg", voiceStyle, compliment } =
-      req.body || {};
+    const { imageBase64, imageMimeType = "image/jpeg", voiceStyle, compliment } = req.body || {};
     if (!imageBase64 || !voiceStyle || !compliment) {
       return res.status(400).json({ error: "imageBase64, voiceStyle, and compliment are required" });
     }
 
     const body = {
-      instances: [
-        {
-          prompt: buildPrompt(voiceStyle, compliment),
-          image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
-        },
-      ],
-      parameters: {
-        aspectRatio: "9:16",
-        durationSeconds: 8,
-        sampleCount: 1,
-      },
+      instances: [{
+        prompt: buildPrompt(voiceStyle, compliment),
+        image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
+      }],
+      parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
     };
 
-    // Retry up to 4 times on 429/503 capacity errors (Veo gets busy)
     let r, data;
     for (let attempt = 0; attempt < 4; attempt++) {
       if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
-      r = await fetch(
-        `${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }
-      );
+      r = await fetch(`${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       data = await r.json();
       if (r.ok) break;
+      console.error(`[veo POST] attempt ${attempt + 1} failed — HTTP ${r.status}:`, JSON.stringify(data));
       const isRetryable = r.status === 429 || r.status === 503;
       if (!isRetryable || attempt === 3) {
-        const msg = data?.error?.message || data?.error || JSON.stringify(data);
-        return res.status(r.status).json({ error: msg });
+        return res.status(r.status).json({ error: extractErrorMessage(data) });
       }
     }
 
     const operationName = data?.name;
-    if (!operationName) return res.status(500).json({ error: "No operation name returned: " + JSON.stringify(data) });
+    if (!operationName) {
+      console.error("[veo POST] no operationName in response:", JSON.stringify(data));
+      return res.status(500).json({ error: "No operation name in response: " + JSON.stringify(data) });
+    }
 
     return res.status(200).json({ operationName });
   }
@@ -114,40 +98,55 @@ export default async function handler(req, res) {
     const op = req.query.op;
     if (!op) return res.status(400).json({ error: "op query param required" });
 
-    const r = await fetch(`${VEO_BASE}/${op}?key=${key}`, {
-      headers: { "Content-Type": "application/json" },
-    });
+    try {
+      const r = await fetch(`${VEO_BASE}/${op}?key=${key}`, {
+        headers: { "Content-Type": "application/json" },
+      });
 
-    const data = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: data?.error?.message || JSON.stringify(data) });
+      const data = await r.json();
 
-    if (data.error) return res.status(500).json({ status: "failed", error: data.error?.message || JSON.stringify(data.error) });
-    if (!data.done) return res.status(200).json({ status: "pending" });
+      if (!r.ok) {
+        console.error(`[veo GET] poll HTTP ${r.status}:`, JSON.stringify(data));
+        return res.status(r.status).json({ status: "failed", error: extractErrorMessage(data) });
+      }
 
-    // Done — extract video
-    const video = extractVideoUrl(data.response || data);
-    if (!video) {
-      return res.status(500).json({ status: "failed", error: "Could not locate video in response", raw: data });
+      if (data.error) {
+        console.error("[veo GET] operation error:", JSON.stringify(data.error));
+        return res.status(500).json({ status: "failed", error: extractErrorMessage(data) });
+      }
+
+      if (!data.done) return res.status(200).json({ status: "pending" });
+
+      // Done — extract and store video
+      console.log("[veo GET] operation done, extracting video...");
+      const video = extractVideoUrl(data.response || data);
+      if (!video) {
+        console.error("[veo GET] could not find video in response:", JSON.stringify(data).slice(0, 500));
+        return res.status(500).json({ status: "failed", error: "Video not found in response — see Vercel logs" });
+      }
+
+      const id = randomBytes(8).toString("hex");
+      let videoBuffer;
+      if (video.uri) {
+        const videoResp = await fetch(video.uri);
+        if (!videoResp.ok) throw new Error(`Failed to fetch video from Google: HTTP ${videoResp.status}`);
+        videoBuffer = Buffer.from(await videoResp.arrayBuffer());
+      } else {
+        videoBuffer = Buffer.from(video.b64, "base64");
+      }
+
+      const { url } = await put(`cats/${id}.mp4`, videoBuffer, {
+        access: "public",
+        contentType: "video/mp4",
+      });
+
+      console.log("[veo GET] stored to blob:", url);
+      return res.status(200).json({ status: "done", url });
+
+    } catch (err) {
+      console.error("[veo GET] unhandled exception:", err.message, err.stack);
+      return res.status(500).json({ status: "failed", error: err.message });
     }
-
-    // Upload to Vercel Blob for a persistent URL
-    const id = randomBytes(8).toString("hex");
-    let videoBuffer;
-
-    if (video.uri) {
-      const videoResp = await fetch(video.uri);
-      if (!videoResp.ok) throw new Error(`Failed to fetch video: ${videoResp.status}`);
-      videoBuffer = Buffer.from(await videoResp.arrayBuffer());
-    } else {
-      videoBuffer = Buffer.from(video.b64, "base64");
-    }
-
-    const { url } = await put(`cats/${id}.mp4`, videoBuffer, {
-      access: "public",
-      contentType: "video/mp4",
-    });
-
-    return res.status(200).json({ status: "done", url });
   }
 
   return res.status(405).json({ error: "Method not allowed" });
