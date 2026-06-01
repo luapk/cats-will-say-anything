@@ -243,7 +243,11 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       navigate(`/share?${shareParams.toString()}`);
 
     } catch (err) {
-      setGeneratingError(err?.message || String(err));
+      const raw = err?.message || String(err);
+      const friendly = raw.toLowerCase().includes("high demand") || raw.toLowerCase().includes("try again")
+        ? "The film studio is very busy right now. Wait a moment and try again."
+        : raw;
+      setGeneratingError(friendly);
       setScreen("error");
     }
   };
