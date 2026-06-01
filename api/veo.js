@@ -9,7 +9,7 @@ import { put } from "@vercel/blob";
 import { randomBytes } from "crypto";
 
 const VEO_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const VEO_MODEL = "veo-3.1-generate-preview";
+const VEO_MODEL = "veo-3.0-generate-preview";
 
 function apiKey() {
   const k = process.env.GOOGLE_API_KEY;
@@ -72,14 +72,7 @@ export default async function handler(req, res) {
       instances: [
         {
           prompt: buildPrompt(voiceStyle, compliment),
-          // "asset" referenceType: Veo uses the image as a subject reference,
-          // NOT as the first frame — the scene is generated fresh.
-          referenceImages: [
-            {
-              image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
-              referenceType: "asset",
-            },
-          ],
+          image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
         },
       ],
       parameters: {
