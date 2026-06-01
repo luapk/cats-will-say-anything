@@ -5,6 +5,7 @@ const VOICES = {
   "Barry White Core": {
     emoji: "🎵",
     voiceDesc: "deep, velvet, impossibly smooth baritone — every word arrives slightly after you expected it",
+    voiceStyle: "a deep, velvety, impossibly smooth Barry White style baritone with long deliberate pauses between each word, as if every syllable costs something",
     compliments: [
       "I have seen you. And I have chosen... to remain."
     ]
@@ -12,6 +13,7 @@ const VOICES = {
   "French Smooth Talker": {
     emoji: "🥐",
     voiceDesc: "silky French accent, existentially resigned, as if complimenting you is a philosophical act they find distasteful but necessary",
+    voiceStyle: "a silky French-accented voice, world-weary and existentially resigned, each word carrying the weight of a man who finds complimenting you philosophically distasteful but necessary",
     compliments: [
       "I have seen you cry at the television. I did not leave the room. This is love, non?"
     ]
@@ -19,6 +21,7 @@ const VOICES = {
   "Noir Detective": {
     emoji: "🔦",
     voiceDesc: "gravelly and world-weary, like a man who has seen too much rain and too many owners and isn't sure which was worse",
+    voiceStyle: "a gravelly, world-weary film noir detective voice, raspy and slow, like a man who has seen too much rain and too many disappointments",
     compliments: [
       "The truth about you is this: you mean well. In this city, that still counts for something."
     ]
@@ -39,8 +42,8 @@ const ANALYZING_MESSAGES = [
 ];
 
 const GENERATING_STEPS = [
-  "Briefing Kling on the situation...",
-  "Generating your film...",
+  "Sending your cat to Veo...",
+  "Generating film + voice...",
   "Cat is approaching the button...",
   "Paw contact imminent...",
   "Rendering your masterpiece...",
@@ -60,12 +63,9 @@ export default function CatsWillSayAnything() {
   const [genMsgIndex, setGenMsgIndex] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [revealStep, setRevealStep] = useState(0);
-  const [playingIdx, setPlayingIdx] = useState(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const fileInputRef = useRef(null);
   const msgIntervalRef = useRef(null);
   const genMsgIntervalRef = useRef(null);
-  const audioRef = useRef(null);
 
   useEffect(() => {
     if (screen === "analyzing") {
@@ -96,42 +96,7 @@ export default function CatsWillSayAnything() {
     }
   }, [screen]);
 
-  const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    setPlayingIdx(null);
-  };
-
-  const playPreview = async (idx) => {
-    if (!analysis || previewLoading) return;
-    if (playingIdx === idx) {
-      stopAudio();
-      return;
-    }
-    stopAudio();
-    setPreviewLoading(true);
-    try {
-      const vd = VOICES[analysis.voice];
-      const resp = await fetch("/api/elevenlabs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voice: analysis.voice, text: vd.compliments[idx] }),
-      });
-      const { audioBase64, audioMime, error } = await resp.json();
-      if (error) throw new Error(error);
-      const audio = new Audio(`data:${audioMime};base64,${audioBase64}`);
-      audioRef.current = audio;
-      audio.onended = () => setPlayingIdx(null);
-      audio.play().catch(() => {});
-      setPlayingIdx(idx);
-    } catch {
-      // silently fail preview
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
+  const stopAudio = () => {};
 
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -154,22 +119,7 @@ export default function CatsWillSayAnything() {
     stopAudio();
     setScreen("analyzing");
     try {
-      const resp = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type: "image",
-                source: { type: "base64", media_type: imageMimeType, data: imageBase64 }
-              },
-              {
-                type: "text",
-                text: `You are analysing a cat photo for the "Cats Will Say Anything" Temptations cat treats campaign.
+      const prompt = `You are analysing a cat photo for the "Cats Will Say Anything" Temptations cat treats campaign.
 
 Assign this cat ONE of these voice archetypes based purely on their vibe, expression, posture and general energy:
 - Barry White Core
@@ -181,14 +131,23 @@ Write 2-3 funny, specific, observational sentences explaining WHY. Reference the
 Also write one punchy tagline about this specific cat. Max 8 words. Example: "This cat has seen things. Bad things."
 
 Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
-{"voice": "exact name from list", "reasoning": "2-3 funny sentences", "tagline": "short line"}`
-              }
+{"voice": "exact name from list", "reasoning": "2-3 funny sentences", "tagline": "short line"}`;
+
+      const resp = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inlineData: { mimeType: imageMimeType, data: imageBase64 } },
+              { text: prompt }
             ]
-          }]
+          }],
+          generationConfig: { temperature: 0.9, maxOutputTokens: 512 }
         })
       });
       const data = await resp.json();
-      const text = (data.content || []).map(b => b.text || "").join("");
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setAnalysis(parsed);
@@ -212,56 +171,40 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
     try {
       const vd = VOICES[analysis.voice];
-      const idx = Math.floor(Math.random() * vd.compliments.length);
-      const compliment = vd.compliments[idx];
+      const compliment = vd.compliments[0];
 
-      // Step 1: Start Kling video generation
-      setGeneratingStep("Sending your cat to Kling...");
-      const klingResp = await fetch("/api/kling", {
+      // Start Veo generation (video + audio baked in one call)
+      setGeneratingStep("Sending your cat to Veo...");
+      const startResp = await fetch("/api/veo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          image: `data:${imageMimeType};base64,${imageBase64}`,
-          prompt: "The cat in this photo slowly raises one paw and at exactly 2 seconds presses a large circular Temptations-branded button on the floor. The press is unhurried, deliberate, minimum effort. The cat's expression is one of profound barely-concealed contempt. Cinematic close-up on paw meeting button. Clean studio setting, warm lighting, 9:16 portrait.",
+          imageBase64,
+          imageMimeType,
+          voiceStyle: vd.voiceStyle,
+          compliment,
         }),
       });
-      const klingData = await klingResp.json();
-      const taskId = klingData?.data?.task_id;
-      if (!taskId) throw new Error(klingData?.message || klingData?.error || JSON.stringify(klingData));
-
-      // Step 2: Poll Kling until done (max 3 min)
-      let rawVideoUrl = null;
-      for (let i = 0; i < 60; i++) {
-        await new Promise(r => setTimeout(r, 3000));
-        setGeneratingStep(`Generating film... ${Math.floor(i * 3)}s`);
-        const pollResp = await fetch(`/api/kling?id=${taskId}`);
-        const pollData = await pollResp.json();
-        const status = pollData?.data?.task_status;
-        if (status === "succeed") {
-          rawVideoUrl = pollData?.data?.task_result?.videos?.[0]?.url;
-          break;
-        }
-        if (status === "failed") throw new Error(pollData?.data?.task_status_msg || "Kling generation failed");
+      const startData = await startResp.json();
+      if (!startResp.ok || !startData.operationName) {
+        throw new Error(startData.error || JSON.stringify(startData));
       }
-      if (!rawVideoUrl) throw new Error("Generation timed out after 3 minutes");
+      const { operationName } = startData;
 
-      // Step 3: Bake ElevenLabs voice into video at 2s, store to Vercel Blob
-      setGeneratingStep("Recording voice and baking into film...");
-      const bakeResp = await fetch("/api/bake", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          videoUrl: rawVideoUrl,
-          voice: analysis.voice,
-          text: compliment,
-          audioOffsetMs: 2000,
-        }),
-      });
-      const bakeData = await bakeResp.json();
-      if (!bakeResp.ok || !bakeData.url) throw new Error(bakeData.error || "Bake failed");
+      // Poll until done (max 5 min)
+      let finalUrl = null;
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 5000));
+        setGeneratingStep(`Generating film + voice... ${Math.floor(i * 5)}s`);
+        const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}`);
+        const pollData = await pollResp.json();
+        if (pollData.status === "done") { finalUrl = pollData.url; break; }
+        if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
+      }
+      if (!finalUrl) throw new Error("Generation timed out after 5 minutes");
 
       const shareParams = new URLSearchParams({
-        v: bakeData.url,
+        v: finalUrl,
         c: compliment,
         voice: analysis.voice,
       });
@@ -274,14 +217,12 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
   };
 
   const reset = () => {
-    stopAudio();
     setScreen("upload");
     setCatImage(null);
     setImageBase64(null);
     setAnalysis(null);
     setGeneratingError("");
     setRevealStep(0);
-    setPlayingIdx(null);
   };
 
   const vd = analysis ? VOICES[analysis.voice] : null;
@@ -754,25 +695,12 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
             {revealStep >= 3 && (
               <div style={{ width: "100%" }}>
-                <div className="section-label">Sample compliments — tap ▶ to hear the voice</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {vd.compliments.slice(0, 3).map((c, i) => (
-                    <div
-                      key={i}
-                      className={`compliment-item ${revealStep >= 3 ? "visible" : ""}`}
-                      style={{ animationDelay: `${i * 0.12}s` }}
-                    >
-                      <span className="compliment-text">"{c}"</span>
-                      <button
-                        className={`play-btn ${playingIdx === i ? "playing" : ""}`}
-                        onClick={() => playPreview(i)}
-                        disabled={previewLoading && playingIdx !== i}
-                        title={playingIdx === i ? "Stop" : "Hear this line"}
-                      >
-                        {previewLoading && playingIdx !== i ? "…" : playingIdx === i ? "■" : "▶"}
-                      </button>
-                    </div>
-                  ))}
+                <div className="section-label">What your cat will say</div>
+                <div
+                  className={`compliment-item visible`}
+                  style={{ animationDelay: "0s" }}
+                >
+                  <span className="compliment-text">"{vd.compliments[0]}"</span>
                 </div>
               </div>
             )}

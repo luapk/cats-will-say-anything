@@ -11,8 +11,7 @@
   "dependencies": {
     "@imgly/background-removal": "^1.7.0",
     "@vercel/blob": "^0.27.0",
-    "ffmpeg-static": "^5.2.0",
-    "react": "^18.3.1",
+"react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.24.0"
   },
