@@ -9,7 +9,7 @@ import { put } from "@vercel/blob";
 import { randomBytes } from "crypto";
 
 const VEO_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const VEO_MODEL = "veo-3.0-generate-preview";
+const VEO_MODEL = "veo-3.1-generate-preview";
 
 function apiKey() {
   const k = process.env.GOOGLE_API_KEY;
@@ -78,7 +78,6 @@ export default async function handler(req, res) {
       parameters: {
         aspectRatio: "9:16",
         durationSeconds: 8,
-        generateAudio: true,
         sampleCount: 1,
       },
     };

@@ -1,12 +1,12 @@
 // Gemini proxy for cat personality analysis.
-// Uses gemini-2.0-flash — fast, no thinking tokens, well within 10s function limit.
+// Uses gemini-2.5-flash with thinkingBudget:0 — fast, no thinking tokens.
 
 export const config = {
   api: { maxDuration: 30 },
 };
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const MODEL = "gemini-2.0-flash";
+const MODEL = "gemini-2.5-flash";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
