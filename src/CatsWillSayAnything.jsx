@@ -118,10 +118,24 @@ export default function CatsWillSayAnything() {
     if (!file || !file.type.startsWith("image/")) return;
     stopAudio();
     setCatImage(URL.createObjectURL(file));
-    setImageMimeType(file.type);
-    const reader = new FileReader();
-    reader.onload = (e) => setImageBase64(e.target.result.split(",")[1]);
-    reader.readAsDataURL(file);
+
+    // Compress to max 1024px and JPEG 0.82 before storing — keeps payload
+    // well under Vercel's 4.5 MB body limit regardless of source image size.
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1024;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+      setImageMimeType("image/jpeg");
+      setImageBase64(dataUrl.split(",")[1]);
+    };
+    img.src = URL.createObjectURL(file);
   };
 
   const handleDrop = (e) => {
