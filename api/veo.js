@@ -20,13 +20,15 @@ function apiKey() {
 // Build the full cinematic prompt, embedding voice style + dialogue.
 function buildPrompt(voiceStyle, compliment) {
   return (
-    `The cat in this photo slowly raises one paw and at exactly 2 seconds presses ` +
-    `a large circular Temptations-branded treat button on the floor. ` +
-    `The press is deliberate, unhurried, requiring minimum effort. ` +
-    `The cat then looks up and, in ${voiceStyle}, says: "${compliment}" ` +
-    `Cinematic close-up on paw meeting button, then cat's face. ` +
-    `The cat's expression radiates profound, barely-concealed contempt. ` +
-    `Warm studio lighting, shallow depth of field, 9:16 portrait.`
+    `The cat from the reference photo walks slowly across a bright solid yellow background ` +
+    `toward a large circular button on the floor. The button is yellow and red, ` +
+    `branded with the Temptations logo. The walk is unhurried — almost insulting in its ` +
+    `lack of urgency. The cat stops directly in front of the button, looks at camera ` +
+    `for one beat, then presses the button firmly with one paw using minimum effort. ` +
+    `Immediately after the press, a voice — ${voiceStyle} — says: "${compliment}" ` +
+    `The cat's expression throughout is one of profound, barely-concealed contempt. ` +
+    `Clean yellow studio background, cinematic lighting, shallow depth of field, ` +
+    `9:16 portrait, 8 seconds.`
   );
 }
 

@@ -58,7 +58,7 @@ const ANALYZING_MESSAGES = [
 ];
 
 const GENERATING_STEPS = [
-  "Sending your cat to Veo...",
+  "Directing your cat...",
   "Generating film + voice...",
   "Cat is approaching the button...",
   "Paw contact imminent...",
@@ -191,8 +191,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const vd = VOICES[analysis.voice];
       const compliment = vd.compliments[0];
 
-      // Start Veo generation (video + audio baked in one call)
-      setGeneratingStep("Sending your cat to Veo...");
+      // Start generation (video + audio baked in one call)
+      setGeneratingStep("Directing your cat...");
       const startResp = await fetch("/api/veo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
