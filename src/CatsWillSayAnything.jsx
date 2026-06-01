@@ -25,6 +25,22 @@ const VOICES = {
     compliments: [
       "The truth about you is this: you mean well. In this city, that still counts for something."
     ]
+  },
+  "Latin Lothario": {
+    emoji: "🌹",
+    voiceDesc: "passionate and telenovela-dramatic, with occasional Spanish endearments and the energy of a man who has never once been casual about anything",
+    voiceStyle: "a passionate, intensely romantic Latin lover voice — dramatic and telenovela-sincere, with occasional Spanish endearments like 'mi amor' and 'corazón', treating every sentence like a pivotal scene in a soap opera",
+    compliments: [
+      "Mi amor. I have been watching you from this windowsill for some time now. And I have decided: you are the one. Do not ask how I know. I simply know."
+    ]
+  },
+  "90s R&B Slow Jam": {
+    emoji: "🕯️",
+    voiceDesc: "breathy Boyz II Men falsetto — achingly sincere, deeply committed, performing every sentence like it's the bridge of a candlelit slow jam",
+    voiceStyle: "a smooth, breathy 90s R&B voice in the style of Boyz II Men — earnest falsetto, achingly sincere, every word performed as if at a Valentine's Day concert with candles everywhere",
+    compliments: [
+      "Baby. I just want you to know. You are THE human. I tried to imagine another human and I couldn't. I genuinely couldn't. Congratulations."
+    ]
   }
 };
 
@@ -125,6 +141,8 @@ Assign this cat ONE of these voice archetypes based purely on their vibe, expres
 - Barry White Core
 - French Smooth Talker
 - Noir Detective
+- Latin Lothario
+- 90s R&B Slow Jam
 
 Write 2-3 funny, specific, observational sentences explaining WHY. Reference the cat's actual appearance — fur, expression, posture, eyes. Be affectionately cutting.
 
