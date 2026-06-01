@@ -72,7 +72,14 @@ export default async function handler(req, res) {
       instances: [
         {
           prompt: buildPrompt(voiceStyle, compliment),
-          image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
+          // "asset" referenceType: Veo uses the image as a subject reference,
+          // NOT as the first frame — the scene is generated fresh.
+          referenceImages: [
+            {
+              image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
+              referenceType: "asset",
+            },
+          ],
         },
       ],
       parameters: {
@@ -93,10 +100,13 @@ export default async function handler(req, res) {
     );
 
     const data = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: data?.error?.message || JSON.stringify(data) });
+    if (!r.ok) {
+      const msg = data?.error?.message || data?.error || JSON.stringify(data);
+      return res.status(r.status).json({ error: msg });
+    }
 
     const operationName = data?.name;
-    if (!operationName) return res.status(500).json({ error: "No operation name returned", raw: data });
+    if (!operationName) return res.status(500).json({ error: "No operation name returned: " + JSON.stringify(data) });
 
     return res.status(200).json({ operationName });
   }
@@ -113,7 +123,7 @@ export default async function handler(req, res) {
     const data = await r.json();
     if (!r.ok) return res.status(r.status).json({ error: data?.error?.message || JSON.stringify(data) });
 
-    if (data.error) return res.status(500).json({ status: "failed", error: data.error.message });
+    if (data.error) return res.status(500).json({ status: "failed", error: data.error?.message || JSON.stringify(data.error) });
     if (!data.done) return res.status(200).json({ status: "pending" });
 
     // Done — extract video
