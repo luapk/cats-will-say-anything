@@ -82,19 +82,25 @@ export default async function handler(req, res) {
       },
     };
 
-    const r = await fetch(
-      `${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+    // Retry up to 4 times on 429/503 capacity errors (Veo gets busy)
+    let r, data;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
+      r = await fetch(
+        `${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      data = await r.json();
+      if (r.ok) break;
+      const isRetryable = r.status === 429 || r.status === 503;
+      if (!isRetryable || attempt === 3) {
+        const msg = data?.error?.message || data?.error || JSON.stringify(data);
+        return res.status(r.status).json({ error: msg });
       }
-    );
-
-    const data = await r.json();
-    if (!r.ok) {
-      const msg = data?.error?.message || data?.error || JSON.stringify(data);
-      return res.status(r.status).json({ error: msg });
     }
 
     const operationName = data?.name;
