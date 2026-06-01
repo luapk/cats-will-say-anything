@@ -4,6 +4,7 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "functions": {
-    "api/veo.js": { "maxDuration": 60 }
+    "api/veo.js": { "maxDuration": 60 },
+    "api/gemini.js": { "maxDuration": 30 }
   }
 }

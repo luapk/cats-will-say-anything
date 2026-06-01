@@ -229,7 +229,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       navigate(`/share?${shareParams.toString()}`);
 
     } catch (err) {
-      setGeneratingError(err.message);
+      setGeneratingError(err?.message || String(err));
       setScreen("error");
     }
   };
