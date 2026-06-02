@@ -98,6 +98,18 @@ function extractVideoUrl(response) {
   return null;
 }
 
+// When an operation is done but has no video, Veo usually filtered the output.
+// Pull out any RAI/filter reason so we can report it instead of a generic message.
+function extractFilterReason(response) {
+  const gvr = response?.generateVideoResponse || response;
+  const count = gvr?.raiMediaFilteredCount ?? response?.raiMediaFilteredCount;
+  const reasons =
+    gvr?.raiMediaFilteredReasons || response?.raiMediaFilteredReasons;
+  if (reasons?.length) return reasons.join("; ");
+  if (count > 0) return `Output was filtered by content safety (${count} sample${count === 1 ? "" : "s"} blocked).`;
+  return null;
+}
+
 export const config = {
   api: { bodyParser: { sizeLimit: "20mb" } },
 };
@@ -118,20 +130,28 @@ export default async function handler(req, res) {
 
     // Primary: use ASSET reference images (Veo 3.1 "ingredients to video").
     // referenceImages[0] = the cat photo (preserves the cat's appearance WITHOUT
-    // pinning it as frame 0). referenceImages[1] = the Temptations button render,
-    // so the prop renders consistently instead of relying on the text spec alone.
+    // pinning it as frame 0).
     // Fallback: if the API rejects reference images (preview support is patchy on the
     // Gemini Developer endpoint), retry with the legacy image-to-video first-frame field.
+    //
+    // The Temptations button render can be sent as a SECOND asset reference, but in
+    // practice that causes Veo 3.1 (preview) to return empty/RAI-filtered output —
+    // the operation completes with a generateVideoResponse that contains no video.
+    // So it's gated behind USE_BUTTON_REFERENCE (default OFF); the button is otherwise
+    // described via the text continuity-bible spec in the prompt. Set the env var to
+    // "1"/"true" to re-test once preview multi-reference support improves.
+    const useButtonRef = /^(1|true)$/i.test(process.env.USE_BUTTON_REFERENCE || "");
     const referenceImages = [{
       image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
       referenceType: "asset",
     }];
-    if (buttonBase64) {
+    if (useButtonRef && buttonBase64) {
       referenceImages.push({
         image: { bytesBase64Encoded: buttonBase64, mimeType: buttonMimeType },
         referenceType: "asset",
       });
     }
+    console.log(`[veo POST] referenceImages count: ${referenceImages.length} (button ref ${useButtonRef ? "ON" : "OFF"})`);
     const refBody = {
       instances: [{
         prompt: buildPrompt(voiceStyle, compliment),
@@ -226,8 +246,14 @@ export default async function handler(req, res) {
       console.log("[veo GET] operation done, full response:", JSON.stringify(data));
       const video = extractVideoUrl(data.response || data);
       if (!video) {
-        console.error("[veo GET] could not find video — keys present:", Object.keys(data.response || data));
-        return res.status(500).json({ status: "failed", error: "Video not found in response — see Vercel logs" });
+        const reason = extractFilterReason(data.response || data);
+        console.error("[veo GET] could not find video — keys present:", Object.keys(data.response || data), "filterReason:", reason);
+        return res.status(500).json({
+          status: "failed",
+          error: reason
+            ? `No video was produced. ${reason}`
+            : "Video not found in response — see Vercel logs",
+        });
       }
 
       const id = randomBytes(8).toString("hex");
