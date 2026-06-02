@@ -223,17 +223,21 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       }
       const { operationName } = startData;
 
-      // Poll until done (max 5 min)
+      // Poll until done (max 10 min)
       let finalUrl = null;
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 120; i++) {
         await new Promise(r => setTimeout(r, 5000));
-        setGeneratingStep(`Generating film + voice... ${Math.floor(i * 5)}s`);
+        const elapsed = Math.floor(i * 5);
+        const mins = Math.floor(elapsed / 60);
+        const secs = elapsed % 60;
+        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        setGeneratingStep(`Generating film... ${timeStr}`);
         const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}`);
         const pollData = await pollResp.json();
         if (pollData.status === "done") { finalUrl = pollData.url; break; }
         if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
       }
-      if (!finalUrl) throw new Error("Generation timed out after 5 minutes");
+      if (!finalUrl) throw new Error("Generation timed out after 10 minutes");
 
       const shareParams = new URLSearchParams({
         v: finalUrl,
@@ -764,7 +768,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             )}
             <div className="spinner" />
             <p className="gen-step">{generatingStep || GENERATING_STEPS[genMsgIndex]}</p>
-            <p className="gen-hint">This takes 1–2 minutes. Don't close the tab.</p>
+            <p className="gen-hint">This takes 3–8 minutes. Don't close the tab.</p>
             <div style={{ display: "flex", gap: "8px" }}>
               {[0, 1, 2].map(i => (
                 <div key={i} className="dot" style={{ animationDelay: `${i * 0.18}s` }} />
