@@ -83,6 +83,7 @@ function buildPrompt(voiceStyle, compliment) {
     `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame with its expression. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. ` +
     `\n\n` +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
+    `NO TEXT ON SCREEN: Do not render any words, captions, subtitles, labels, or text of any kind burned into the video frames. No on-screen text whatsoever. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
 }
@@ -134,13 +135,12 @@ export default async function handler(req, res) {
     // Fallback: if the API rejects reference images (preview support is patchy on the
     // Gemini Developer endpoint), retry with the legacy image-to-video first-frame field.
     //
-    // The Temptations button render can be sent as a SECOND asset reference, but in
-    // practice that causes Veo 3.1 (preview) to return empty/RAI-filtered output —
-    // the operation completes with a generateVideoResponse that contains no video.
-    // So it's gated behind USE_BUTTON_REFERENCE (default OFF); the button is otherwise
-    // described via the text continuity-bible spec in the prompt. Set the env var to
-    // "1"/"true" to re-test once preview multi-reference support improves.
-    const useButtonRef = /^(1|true)$/i.test(process.env.USE_BUTTON_REFERENCE || "");
+    // The Temptations button render is sent as a SECOND asset reference alongside the
+    // cat photo. Text description alone doesn't produce a faithful button render.
+    // If this causes empty/filtered output for a particular generation, the fallback
+    // chain (referenceImages rejected → first-frame) still recovers.
+    // Set USE_BUTTON_REFERENCE=0 in Vercel env vars to disable if needed.
+    const useButtonRef = !/^(0|false)$/i.test(process.env.USE_BUTTON_REFERENCE || "");
     const referenceImages = [{
       image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
       referenceType: "asset",
