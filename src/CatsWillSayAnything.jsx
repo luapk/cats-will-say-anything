@@ -6,17 +6,15 @@ const VOICES = {
     emoji: "🎵",
     toneNote: "Deep African American baritone — every word arrives late and costs something",
     voiceDesc: "deep, velvet, impossibly smooth baritone — every word arrives slightly after you expected it",
-    voiceStyle: "a deep, velvety, impossibly smooth Barry White style baritone with long deliberate pauses between each word, as if every syllable costs something",
+    voiceStyle: "a rich, resonant African American male bass-baritone voice — think Barry White or Isaac Hayes — speaking with extraordinary deliberateness. Each word is separated by a long, meaningful pause. The voice is impossibly smooth, almost liquid, with a slight hum of warmth underneath. Every consonant lands softly. Every pause is pregnant. It sounds like the voice knows something you don't, and is deciding whether to share it",
     compliments: [
       "You... are doing your best. And that is... enough.",
       "I have seen you. And I have chosen... to remain.",
-      "Your cooking. Is not offensive. To me. Tonight.",
+      "Your appearance... is not offensive. To me. Tonight.",
       "You opened the window when I asked. That is... a quality.",
       "For a human... you are tolerable. In the evenings.",
-      "I notice... you made the bed today. That was... something.",
       "You have a warmth about you. That I occasionally appreciate... from a distance.",
       "Your voice is not unpleasant. When you are not talking too much.",
-      "I have considered leaving. And I have not. That is... my gift to you.",
       "You try. And sometimes... that is visible.",
     ]
   },
@@ -24,7 +22,7 @@ const VOICES = {
     emoji: "🥐",
     toneNote: "Silky French film star — existentially resigned, philosophically disappointed but magnanimous",
     voiceDesc: "silky French accent, existentially resigned, as if complimenting you is a philosophical act they find distasteful but necessary",
-    voiceStyle: "a silky French-accented voice, world-weary and existentially resigned, each word carrying the weight of a man who finds complimenting you philosophically distasteful but necessary",
+    voiceStyle: "a French-accented male voice speaking English — think Jean Reno or the French narrator in a Parisian art film. The accent is genuine: lilting vowels, slightly nasal, Rs rolled gently, H sounds dropped. The tone is world-weary and philosophically resigned, as if this compliment is an existential burden the speaker has agreed to carry, reluctantly, out of a vague sense of duty. There is a faint, dry amusement underneath — the voice of someone who finds everything mildly disappointing but is too elegant to make a fuss about it",
     compliments: [
       "You are not, how do I say... the worst thing in this apartment.",
       "Your sense of style is limited. But it is yours. This I respect. A little.",
@@ -33,7 +31,6 @@ const VOICES = {
       "You smell of effort. I find this... not entirely unpleasant.",
       "In France, we would not keep you. But this is not France. So here we are.",
       "You have a good heart. It is not your fault you also have that haircut.",
-      "When you laugh, it is annoying. But also, somehow, it is yours. C'est la vie.",
       "You are improving. Slowly. It is noticeable. Barely.",
       "You ask so little in return. This is, perhaps, your greatest quality.",
     ]
@@ -42,18 +39,14 @@ const VOICES = {
     emoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
     toneNote: "Measured Scottish gravitas — imperious, deliberate, delivers backhanded praise like a knighthood",
     voiceDesc: "measured Scottish brogue, imperious and deliberate, delivering backhanded praise with the weight of a man who has seen far greater things",
-    voiceStyle: "a measured, authoritative Scottish voice in the style of Sean Connery — gravelly, deliberate, every sentence delivered with weighty significance and understated approval, as if granting a great honour reluctantly",
+    voiceStyle: "a Scottish male voice modelled on Sean Connery circa 2000 — a rich, gravelly baritone with a strong Edinburgh-Highlands Scottish accent. The Rs are slightly rolled. The vowels are rounded and full. The cadence is unhurried and authoritative, as if each sentence has been considered carefully and delivered from a position of supreme, unearned confidence. There is a mild rasp in the voice. Every word carries the quiet implication that this speaker has done far more impressive things than whatever you have done, and is choosing, generously, not to say so",
     compliments: [
-      "You have done adequately. I will not elaborate on this.",
       "In my experience, most people are disappointing. You are less disappointing than most.",
-      "You remembered to feed me. This is the minimum. And yet. Here we are.",
       "I have known greater people. I have also known worse. You are somewhere in that range.",
       "You are not entirely without merit. Take that. Keep it. Use it wisely.",
       "Your determination is noted. I do not share it. But I note it.",
       "A lesser person would have given up by now. You have not. That is... something.",
-      "You have managed today. Tomorrow remains to be seen. But today. Yes.",
       "I expect more. I always expect more. But what you gave was... sufficient.",
-      "You have stopped trying to impress me. I find this... almost refreshing.",
     ]
   },
 };
