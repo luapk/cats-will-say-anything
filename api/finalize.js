@@ -26,7 +26,7 @@ const ELEVEN_MODEL = "eleven_multilingual_v2";
 // Persona display name → ElevenLabs voice ID.
 const VOICE_IDS = {
   "Barry White Core": "hILdTfuUq4LRBMrxHERr",
-  "French Smooth Talker": "K8nDX2f6wjv6bCh5UeZi",
+  "French Smooth Talker": "I1T6PEfqPxl45yKRN4aS",
   "Early 2000s Sean Connery": "csXxiUN2BUFflsCaDxPM",
 };
 
@@ -86,7 +86,7 @@ async function detectPressSeconds(videoBase64, key) {
 // French and Scottish need style boosted to 0.7 to pull the accent out.
 const VOICE_SETTINGS = {
   "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },  // Barry White Core
-  "K8nDX2f6wjv6bCh5UeZi": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // French Smooth Talker
+  "I1T6PEfqPxl45yKRN4aS": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // French Smooth Talker
   "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true, speed: 0.82 },  // Early 2000s Sean Connery
 };
 const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
