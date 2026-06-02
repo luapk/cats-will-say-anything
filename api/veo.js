@@ -105,6 +105,10 @@ export default async function handler(req, res) {
 
       const data = await r.json();
 
+      // Never cache poll responses — a stale "pending" would block completion detection.
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+
       if (!r.ok) {
         console.error(`[veo GET] poll HTTP ${r.status}:`, JSON.stringify(data));
         return res.status(r.status).json({ status: "failed", error: extractErrorMessage(data) });
