@@ -230,7 +230,7 @@ export default async function handler(req, res) {
   if (!elevenKey) return res.status(500).json({ error: "ELEVENLABS_API_KEY not configured" });
   if (!ffmpegPath) return res.status(500).json({ error: "ffmpeg binary not available" });
 
-  const { videoUrl, voice, compliment } = req.body || {};
+  const { videoUrl, endingVideoUrl, voice, compliment } = req.body || {};
   if (!videoUrl || !voice || !compliment) {
     return res.status(400).json({ error: "videoUrl, voice, and compliment are required" });
   }
@@ -239,22 +239,32 @@ export default async function handler(req, res) {
 
   const id = randomBytes(8).toString("hex");
   const inPath = join(tmpdir(), `${id}-in.mp4`);
+  const endPath = join(tmpdir(), `${id}-end.mp4`);
   const voicePath = join(tmpdir(), `${id}-vo.mp3`);
   const outPath = join(tmpdir(), `${id}-out.mp4`);
 
-  try {
-    // 1. Download the silent Veo clip.
-    const vresp = await fetch(videoUrl);
-    if (!vresp.ok) throw new Error(`Failed to fetch source video: HTTP ${vresp.status}`);
-    const videoBuffer = Buffer.from(await vresp.arrayBuffer());
-    await writeFile(inPath, videoBuffer);
+  // Download a URL to a local file.
+  const download = async (url, path, label) => {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`Failed to fetch ${label}: HTTP ${r.status}`);
+    await writeFile(path, Buffer.from(await r.arrayBuffer()));
+  };
 
-    // 2. In parallel: generate the voice, get Gemini's visual press estimate,
-    //    get video duration, and resolve the click asset.
-    const [voiceBuffer, visual, videoLen, clickPath] = await Promise.all([
+  try {
+    // 1. Download the silent main clip (and the ending clip, if provided).
+    const hasEnding = !!endingVideoUrl;
+    await Promise.all([
+      download(videoUrl, inPath, "main video"),
+      hasEnding ? download(endingVideoUrl, endPath, "ending video") : Promise.resolve(),
+    ]);
+
+    // 2. In parallel: generate the voice, get Gemini's press estimate (on the main
+    //    clip only — the press is there), measure both clip durations, resolve click.
+    const [voiceBuffer, visual, mainLen, endLen, clickPath] = await Promise.all([
       generateVoice(voiceId, compliment, elevenKey),
       detectPressVisual(inPath, googleKey),
       mediaDuration(inPath).then(d => d || 8),
+      hasEnding ? mediaDuration(endPath).then(d => d || 4) : Promise.resolve(0),
       resolveClickPath(),
     ]);
     await writeFile(voicePath, voiceBuffer);
@@ -262,36 +272,48 @@ export default async function handler(req, res) {
     // 3. Resolve the press moment (Gemini's fully-pressed frame, nudged slightly
     //    later by CLICK_OFFSET so the click lands as the button bottoms out).
     let { pressSeconds, source } = resolvePress(visual);
-    pressSeconds = Math.min(Math.max(pressSeconds + CLICK_OFFSET, PRESS_MIN_SECONDS), videoLen - 0.1);
+    pressSeconds = Math.min(Math.max(pressSeconds + CLICK_OFFSET, PRESS_MIN_SECONDS), mainLen - 0.1);
     console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} (visual=${visual}, +${CLICK_OFFSET} offset)`);
 
-    // 4. Compute timing. The clip stays at its native length (8s) — we never
-    //    freeze-extend. The voice starts after the click; if a long voiceover would
-    //    run past the end it is simply truncated (compliments are kept short to fit).
+    // 4. Compute timing. The final film is main + ending concatenated; the voice
+    //    runs across the cut. A voiceover longer than the total is truncated.
     const clickMs = Math.round(pressSeconds * 1000);
     const voiceStart = pressSeconds + VOICE_GAP_SECONDS;
     const voiceMs = Math.round(voiceStart * 1000);
-    const target = videoLen;
-    console.log(`[finalize] click@${clickMs}ms voice@${voiceMs}ms videoLen=${videoLen.toFixed(2)} (8s cap, no extend)`);
+    const target = mainLen + endLen;
+    console.log(`[finalize] click@${clickMs}ms voice@${voiceMs}ms mainLen=${mainLen.toFixed(2)} ` +
+      `endLen=${endLen.toFixed(2)} total=${target.toFixed(2)}${hasEnding ? "" : " (no ending clip)"}`);
 
-    // 5. Build the final video: keep the native 8s frames, bake the audio track
-    //    from scratch — click at the press, voice just after. Veo's own audio is
-    //    discarded entirely.
+    // 5. Build the final video. The audio track is baked from scratch — click at
+    //    the press, voice just after — and runs across the whole film. Veo's own
+    //    audio is discarded entirely.
     // Click: trim its lead-in silence so the transient lands ON the press, boost
     // it (the source is quiet), force stereo, then delay to the press moment.
     // Voice: force stereo and delay to press + gap so it starts AFTER the click.
-    const filter =
-      `[0:v]setsar=1[v];` +
-      `[1:a]atrim=start=${CLICK_LEAD_TRIM},asetpts=PTS-STARTPTS,volume=${CLICK_VOLUME},` +
+    const clickIdx = hasEnding ? 2 : 1;   // input index of click.mp3
+    const voiceIdx = hasEnding ? 3 : 2;   // input index of the voiceover
+    const audioChain =
+      `[${clickIdx}:a]atrim=start=${CLICK_LEAD_TRIM},asetpts=PTS-STARTPTS,volume=${CLICK_VOLUME},` +
         `aformat=channel_layouts=stereo,adelay=${clickMs}|${clickMs}[click];` +
-      `[2:a]aformat=channel_layouts=stereo,adelay=${voiceMs}|${voiceMs}[vo];` +
+      `[${voiceIdx}:a]aformat=channel_layouts=stereo,adelay=${voiceMs}|${voiceMs}[vo];` +
       `[click][vo]amix=inputs=2:normalize=0:duration=longest,alimiter=limit=0.97[a]`;
+
+    // Video: when there's an ending clip, scale it to match the main clip's exact
+    // dimensions (scale2ref) and concat. Otherwise just pass the main clip through.
+    const videoChain = hasEnding
+      ? `[1:v][0:v]scale2ref=w=iw:h=ih[ve][vm];` +
+        `[vm]setsar=1,fps=24,format=yuv420p[v0];[ve]setsar=1,fps=24,format=yuv420p[v1];` +
+        `[v0][v1]concat=n=2:v=1:a=0[v]`
+      : `[0:v]setsar=1[v]`;
+
+    const inputs = hasEnding
+      ? ["-i", inPath, "-i", endPath, "-i", clickPath, "-i", voicePath] // 0,1,2,3
+      : ["-i", inPath, "-i", clickPath, "-i", voicePath];               // 0,1,2
+
     await run(ffmpegPath, [
       "-y",
-      "-i", inPath,         // 0: video (audio ignored)
-      "-i", clickPath,      // 1: click.mp3
-      "-i", voicePath,      // 2: ElevenLabs voice
-      "-filter_complex", filter,
+      ...inputs,
+      "-filter_complex", `${videoChain};${audioChain}`,
       "-map", "[v]", "-map", "[a]",
       "-t", target.toFixed(3),
       "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
@@ -312,6 +334,6 @@ export default async function handler(req, res) {
     console.error("[finalize] error:", err.message, err.stack);
     return res.status(500).json({ error: err.message });
   } finally {
-    for (const p of [inPath, voicePath, outPath]) unlink(p).catch(() => {});
+    for (const p of [inPath, endPath, voicePath, outPath]) unlink(p).catch(() => {});
   }
 }

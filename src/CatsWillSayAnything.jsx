@@ -296,32 +296,52 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       if (!startResp.ok || !startData.operationName) {
         throw new Error(startData.error || JSON.stringify(startData));
       }
-      const { operationName } = startData;
+      // Two clips render in parallel: the main (~8s) press clip and a randomised
+      // ~4s ending clip, concatenated in finalize so the voiceover has room to run.
+      const { operationName, endingOperationName } = startData;
 
       // Clear initial step so GENERATING_STEPS cycle shows during polling
       setGeneratingStep("");
 
-      // Poll until done (max 10 min)
-      let finalUrl = null;
-      let needsVoice = false;
+      // Poll one operation to completion; returns its stored URL.
+      const pollOp = async (op) => {
+        const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(op)}&t=${Date.now()}`);
+        const pollData = await pollResp.json();
+        if (pollData.status === "done") return { done: true, url: pollData.url, needsVoice: !!pollData.needsVoice };
+        if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
+        return { done: false };
+      };
+
+      // Poll both clips until each is done (max 10 min). endingOperationName may be
+      // absent on older deploys — treat it as optional.
+      let mainUrl = null, endingUrl = null, needsVoice = false;
+      const hasEnding = !!endingOperationName;
       for (let i = 0; i < 120; i++) {
         await new Promise(r => setTimeout(r, 5000));
         setElapsedSeconds((i + 1) * 5);
-        const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}&t=${Date.now()}`);
-        const pollData = await pollResp.json();
-        if (pollData.status === "done") { finalUrl = pollData.url; needsVoice = !!pollData.needsVoice; break; }
-        if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
+        if (!mainUrl) {
+          const m = await pollOp(operationName);
+          if (m.done) { mainUrl = m.url; needsVoice = m.needsVoice; }
+        }
+        if (hasEnding && !endingUrl) {
+          const e = await pollOp(endingOperationName);
+          if (e.done) endingUrl = e.url;
+        }
+        if (mainUrl && (!hasEnding || endingUrl)) break;
       }
-      if (!finalUrl) throw new Error("Generation timed out after 10 minutes");
+      if (!mainUrl) throw new Error("Generation timed out after 10 minutes");
+      if (hasEnding && !endingUrl) throw new Error("Ending clip timed out after 10 minutes");
 
-      // ElevenLabs mode: the clip is silent (click only). Add the voice now,
-      // baked in at the detected press moment.
+      let finalUrl = mainUrl;
+
+      // ElevenLabs mode: clips are silent. finalize concatenates main + ending and
+      // bakes the voice in, synced to the detected press moment.
       if (needsVoice) {
         setGeneratingStep("Recording the voiceover...");
         const finResp = await fetch("/api/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: finalUrl, voice: analysis.voice, compliment }),
+          body: JSON.stringify({ videoUrl: mainUrl, endingVideoUrl: endingUrl, voice: analysis.voice, compliment }),
         });
         const finData = await finResp.json();
         if (!finResp.ok || !finData.url) throw new Error(finData.error || "Voiceover compositing failed");

@@ -43,33 +43,53 @@ const BUTTON_BIBLE = JSON.stringify({
   scale: "~90mm wide — approximately as wide as the cat's paw is long.",
 });
 
-// Five distinct closing beats for the last ~1.5–2s. Chosen SEQUENTIALLY across
-// all films (not per-user, not random) via a shared counter in Blob storage, so
-// consecutive generations rotate through the full set.
+// Five distinct closing beats, each describing the WHOLE second clip (~4s). One
+// is chosen SEQUENTIALLY across all films (not per-user, not random) via a shared
+// counter in Blob storage, so consecutive generations rotate through the full set.
 const ENDINGS = [
   // 0 — crash zoom (the original)
-  `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. `,
+  `THE SHOT: A rapid crash zoom pushes into an extreme close-up of the cat's face, filling the frame. The cat holds a deadpan, deeply unimpressed stare directly into the lens for the whole clip.`,
   // 1 — wide pull-back, patient
-  `FINAL SHOT (last 1.5–2 seconds): The camera pulls back to a wide shot, the cat now small and centred in the vast empty yellow studio, sitting bolt upright and perfectly still, paws together, waiting with infinite patience. Hold on this composed wide image as the clip ends. `,
+  `THE SHOT: A wide shot — the cat small and centred in the vast empty yellow studio, sitting bolt upright and perfectly still, paws together, waiting with infinite patience.`,
   // 2 — mortified
-  `FINAL SHOT (last 1.5–2 seconds): The cat suddenly looks mortified — ears flattening back, eyes darting away from the lens, head shrinking down between the shoulders, deeply embarrassed by what was just said. Hold on this sheepish, cringing expression as the clip ends. `,
+  `THE SHOT: The cat looks mortified — ears flattening back, eyes darting away from the lens, head shrinking down between its shoulders, deeply embarrassed. Hold on this sheepish, cringing expression.`,
   // 3 — smug
-  `FINAL SHOT (last 1.5–2 seconds): The cat gives one slow, supremely self-satisfied blink directly down the lens, chin lifting slightly, utterly pleased with itself. Hold on this smug, knowing expression as the clip ends. `,
+  `THE SHOT: The cat looks supremely smug — chin lifted, eyes half-closed, giving one slow self-satisfied blink directly down the lens, utterly pleased with itself.`,
   // 4 — unbothered exit
-  `FINAL SHOT (last 1.5–2 seconds): The cat dismissively breaks eye contact, turns its head away and begins to stroll out of frame, tail flicking once, completely done with you. Hold on the emptying frame as the clip ends. `,
+  `THE SHOT: The cat dismissively breaks eye contact, turns and strolls out of frame with a single flick of its tail, completely done with you, leaving the empty yellow studio.`,
 ];
 
-function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
+// Shared scene preamble (reference images + studio + button spec), reused by both
+// the main clip and the ending clip so the cat and set stay consistent.
+function sceneIntro() {
+  return (
+    `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
+    `The FIRST reference image is the CAT (the star). The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
+    `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
+    `same fur colour, markings, face shape, eye colour, coat texture, and body type. This cat is the star of the video. ` +
+    `\n\n` +
+    `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
+    `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video. The button reference image is the authoritative source for its look; this continuity-bible JSON spec describes the same prop: ` +
+    `${BUTTON_BIBLE}. ` +
+    `The button sits directly on the yellow floor. Its yellow cap is seated FLUSH in the red base in its resting state (the reference image shows this resting, depressed-looking state) — the cap never protrudes or sticks up; pressing only pushes it a short way straight down and inward. Its surface is shiny plastic with glossy specular highlights. ` +
+    `\n\n`
+  );
+}
+
+const RULES =
+  `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
+  `NO TEXT ON SCREEN: Do not render any words, captions, subtitles, labels, or text of any kind burned into the video frames. No on-screen text whatsoever. `;
+
+// MAIN clip (~8s): the cat presses the button, then holds a deadpan stare. No
+// closing camera move — the ending is a separate second clip concatenated after.
+function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
   const audioSection = elevenLabs
     ? (
-      // ElevenLabs mode: Veo is given NO audio instructions at all. Any audio
-      // directives (even "produce a click") trip Veo's audio safety filter, and
-      // finalize.js discards Veo's audio entirely anyway — it bakes the click and
-      // the voice from scratch, synced to the press detected from visual motion.
-      // So this section describes the ACTION only, never sound.
+      // ElevenLabs mode: Veo is given NO audio instructions at all (any audio
+      // directive trips Veo's safety filter); finalize.js bakes click + voice.
       `ACTION — CRITICAL: At roughly 1 second in, the cat reaches out with one paw and presses the yellow cap straight down a short distance, then withdraws the paw. ONE press only — no second tap, no repeated pawing, no returning to the button. The cat's mouth stays completely shut throughout — no meowing, no vocalisation of any kind. ` +
       `\n\n` +
-      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera — until the final shot below takes over. ` +
+      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera for the rest of the clip. ` +
       `\n\n`
     )
     : (
@@ -78,8 +98,7 @@ function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
       `\n\n` +
       `FIRST HALF — BEFORE THE CLICK (the first 2 seconds only): ABSOLUTE TOTAL SILENCE. ` +
       `There is NO voice, NO speech, NO talking, NO words, NO music, NO narration of any kind. ` +
-      `Pure ambient room tone only. Quickly — within the first 2 seconds — the cat reaches out and presses the yellow button down with one paw. ` +
-      `The press happens early so the rest of the video is free for the voice. ` +
+      `Pure ambient room tone only. At roughly 1 second in, the cat reaches out and presses the yellow cap straight down, then withdraws — ONE press only. ` +
       `The cat's mouth stays shut the entire time. Do NOT let any voice or speech occur in this first 2 seconds under any circumstances. ` +
       `\n\n` +
       `THE CLICK: At the exact instant the paw pushes the yellow cap down, play ONE short mechanical "CLICK" sound effect. ` +
@@ -90,35 +109,38 @@ function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
       `The voice is in the style of ${voiceStyle}. The button says, exactly once: "${compliment}". ` +
       `The voice comes OUT OF THE BUTTON, not the cat. The cat never opens its mouth and never speaks. ` +
       `\n\n` +
-      `STRICT ORDERING RULE: silence comes first, THEN the click, THEN the voice. ` +
-      `The voice must NEVER be heard before the click. If you are about to play the voice, the click must already have happened. ` +
-      `The cat presses the button within the first 2 seconds, and only after that click does any voice begin. This ordering is non-negotiable. ` +
+      `STRICT ORDERING RULE: silence comes first, THEN the click, THEN the voice. The voice must NEVER be heard before the click. ` +
       `\n\n` +
       `WHILE THE VOICE PLAYS: the cat turns its head and stares directly into the camera — deeply grumpy, unblinking, utterly unbothered. ` +
       `\n\n`
     );
 
   return (
-    `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `The FIRST reference image is the CAT (the star). The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
-    `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
-    `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
-    `This cat is the star of the video. ` +
-    `\n\n` +
+    sceneIntro() +
     `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
     `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
     `\n\n` +
-    `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
-    `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video. The button reference image is the authoritative source for its look; this continuity-bible JSON spec describes the same prop: ` +
-    `${BUTTON_BIBLE}. ` +
-    `The button sits directly on the yellow floor. Its yellow cap is seated FLUSH in the red base in its resting state (the reference image shows this resting, depressed-looking state) — the cap never protrudes or sticks up; pressing only pushes it a short way straight down and inward. Its surface is shiny plastic with glossy specular highlights. ` +
-    `\n\n` +
     audioSection +
-    ending +
-    `\n\n` +
-    `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
-    `NO TEXT ON SCREEN: Do not render any words, captions, subtitles, labels, or text of any kind burned into the video frames. No on-screen text whatsoever. ` +
+    RULES +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
+  );
+}
+
+// ENDING clip (~4s): the cat, having just pressed the button, performs one of the
+// randomised closing beats. No new press, mouth stays shut (the voiceover from the
+// first clip carries over the cut in finalize.js).
+function buildEndingPrompt(ending) {
+  return (
+    sceneIntro() +
+    `START OF VIDEO: The very first frame is already live action — the cat in the same bright yellow studio beside the Temptations button, having just finished pressing it. ` +
+    `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The cat is moving from frame 0. ` +
+    `\n\n` +
+    `NO NEW PRESS: The cat does NOT touch, paw, or press the button in this clip. Its mouth stays completely shut throughout — no meowing, no speaking, no vocalisation. ` +
+    `\n\n` +
+    ending + ` ` +
+    `\n\n` +
+    RULES +
+    `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 4 seconds.`
   );
 }
 
@@ -206,7 +228,8 @@ export default async function handler(req, res) {
     const elevenLabs = /^(1|true)$/i.test(process.env.USE_ELEVENLABS || "");
     const endingIndex = await nextEndingIndex();
     console.log(`[veo POST] ending index: ${endingIndex} of ${ENDINGS.length}`);
-    const prompt = buildPrompt(voiceStyle, compliment, elevenLabs, ENDINGS[endingIndex]);
+    const mainPrompt = buildMainPrompt(voiceStyle, compliment, elevenLabs);
+    const endingPrompt = buildEndingPrompt(ENDINGS[endingIndex]);
     const referenceImages = [{
       image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
       referenceType: "asset",
@@ -218,20 +241,17 @@ export default async function handler(req, res) {
       });
     }
     console.log(`[veo POST] referenceImages count: ${referenceImages.length} (button ref ${useButtonRef ? "ON" : "OFF"}, elevenLabs ${elevenLabs ? "ON" : "OFF"})`);
-    const refBody = {
-      instances: [{
-        prompt,
-        referenceImages,
-      }],
-      parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
-    };
-    const firstFrameBody = {
-      instances: [{
-        prompt,
-        image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
-      }],
-      parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
-    };
+
+    const bodiesFor = (prompt, durationSeconds) => ({
+      refBody: {
+        instances: [{ prompt, referenceImages }],
+        parameters: { aspectRatio: "9:16", durationSeconds, sampleCount: 1 },
+      },
+      firstFrameBody: {
+        instances: [{ prompt, image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType } }],
+        parameters: { aspectRatio: "9:16", durationSeconds, sampleCount: 1 },
+      },
+    });
 
     const postVeo = async (payload) => {
       const resp = await fetch(`${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`, {
@@ -242,42 +262,52 @@ export default async function handler(req, res) {
       return { resp, json: await resp.json() };
     };
 
-    let body = refBody;
-    let usedFallback = false;
-    let r, data;
-    for (let attempt = 0; attempt < 4; attempt++) {
-      if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
-      ({ resp: r, json: data } = await postVeo(body));
-      if (r.ok) break;
-      console.error(`[veo POST] attempt ${attempt + 1} failed — HTTP ${r.status}:`, JSON.stringify(data));
+    // Start one generation (with reference-image → first-frame fallback and
+    // retry/backoff). Returns { operationName } or { error, status }.
+    const startGeneration = async (label, prompt, durationSeconds) => {
+      const { refBody, firstFrameBody } = bodiesFor(prompt, durationSeconds);
+      let body = refBody, usedFallback = false, r, data;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
+        ({ resp: r, json: data } = await postVeo(body));
+        if (r.ok) break;
+        console.error(`[veo POST] ${label} attempt ${attempt + 1} failed — HTTP ${r.status}:`, JSON.stringify(data));
 
-      // If reference images aren't supported, fall back to first-frame once.
-      const errStr = JSON.stringify(data).toLowerCase();
-      const refUnsupported = !usedFallback && body === refBody &&
-        (errStr.includes("referenceimage") || errStr.includes("reference_image") ||
-         errStr.includes("not supported") || errStr.includes("unknown name") ||
-         errStr.includes("invalid")) ;
-      if (refUnsupported) {
-        console.log("[veo POST] referenceImages rejected — falling back to first-frame image");
-        body = firstFrameBody;
-        usedFallback = true;
-        continue; // immediate retry with fallback body, no backoff
+        const errStr = JSON.stringify(data).toLowerCase();
+        const refUnsupported = !usedFallback && body === refBody &&
+          (errStr.includes("referenceimage") || errStr.includes("reference_image") ||
+           errStr.includes("not supported") || errStr.includes("unknown name") ||
+           errStr.includes("invalid"));
+        if (refUnsupported) {
+          console.log(`[veo POST] ${label}: referenceImages rejected — falling back to first-frame image`);
+          body = firstFrameBody;
+          usedFallback = true;
+          continue;
+        }
+
+        const isRetryable = r.status === 429 || r.status === 503;
+        if (!isRetryable || attempt === 3) return { error: extractErrorMessage(data), status: r.status };
       }
+      const operationName = data?.name;
+      if (!operationName) return { error: "No operation name in response: " + JSON.stringify(data), status: 500 };
+      console.log(`[veo POST] ${label} started using ${usedFallback ? "first-frame image" : "asset referenceImages"}`);
+      return { operationName };
+    };
 
-      const isRetryable = r.status === 429 || r.status === 503;
-      if (!isRetryable || attempt === 3) {
-        return res.status(r.status).json({ error: extractErrorMessage(data) });
-      }
-    }
-    console.log(`[veo POST] started using ${usedFallback ? "first-frame image" : "asset referenceImages"}`);
+    // Fire the main (~8s) and ending (~4s) clips concurrently — both Veo jobs run
+    // in parallel, so wall time is unchanged (one clip's worth of waiting).
+    const endingDuration = Number(process.env.ENDING_DURATION_SECONDS) || 4;
+    const [main, ending] = await Promise.all([
+      startGeneration("main", mainPrompt, 8),
+      startGeneration("ending", endingPrompt, endingDuration),
+    ]);
+    if (main.error) return res.status(main.status).json({ error: main.error });
+    if (ending.error) return res.status(ending.status).json({ error: `Ending clip: ${ending.error}` });
 
-    const operationName = data?.name;
-    if (!operationName) {
-      console.error("[veo POST] no operationName in response:", JSON.stringify(data));
-      return res.status(500).json({ error: "No operation name in response: " + JSON.stringify(data) });
-    }
-
-    return res.status(200).json({ operationName });
+    return res.status(200).json({
+      operationName: main.operationName,
+      endingOperationName: ending.operationName,
+    });
   }
 
   // ── GET: poll operation ─────────────────────────────────────────────────
