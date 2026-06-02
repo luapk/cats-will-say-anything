@@ -23,7 +23,7 @@ import ffmpegPath from "ffmpeg-static";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
-  maxDuration: 60,
+  maxDuration: 300, // concat of two clips + frame detection + encode can exceed 60s
 };
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
@@ -96,8 +96,8 @@ async function mediaDuration(path) {
 // labelled set but bad at inventing a precise timestamp. So we extract evenly
 // spaced frames across the window the press can occur in, stamp each with its
 // time, and ask Gemini to pick the first frame where the paw is pressing.
-const FRAME_FPS = 8;            // frames per second to sample (0.125s resolution)
-const FRAME_WINDOW = 4.0;       // sample only the first N seconds (press is early)
+const FRAME_FPS = 6;            // frames per second to sample (~0.17s resolution)
+const FRAME_WINDOW = 3.0;       // sample only the first N seconds (press is early)
 
 // Extract evenly spaced JPEG frames from the start of the clip. Returns
 // [{ t, base64 }] ordered by time. The frame index i (1-based) maps to
@@ -316,7 +316,7 @@ export default async function handler(req, res) {
       "-filter_complex", `${videoChain};${audioChain}`,
       "-map", "[v]", "-map", "[a]",
       "-t", target.toFixed(3),
-      "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+      "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
       outPath,
     ]);
