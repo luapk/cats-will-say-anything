@@ -24,8 +24,11 @@ export default async function handler(req, res) {
   const { voice, text } = req.body || {};
   if (!voice || !text) return res.status(400).json({ error: "voice and text are required" });
 
-  const voiceId = VOICE_IDS[voice];
-  if (!voiceId) return res.status(400).json({ error: `Unknown voice: ${voice}` });
+  // Accept either a persona display name or a raw ElevenLabs voice ID.
+  const voiceId = VOICE_IDS[voice] || voice;
+  if (!/^[a-zA-Z0-9]{20,}$/.test(voiceId)) {
+    return res.status(400).json({ error: `Invalid voice: ${voice}` });
+  }
 
   const r = await fetch(`${ELEVEN_BASE}/${voiceId}`, {
     method: "POST",
