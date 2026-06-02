@@ -54,7 +54,10 @@ async function detectPressSeconds(videoBase64, key) {
             { inlineData: { mimeType: "video/mp4", data: videoBase64 } },
             { text:
               `This is a short video of a cat pressing a yellow button with its paw. ` +
-              `Identify the exact moment the paw makes full contact and presses the button down (the click). ` +
+              `Watch the paw carefully and identify the precise moment the button reaches the BOTTOM of its travel — ` +
+              `the instant it is fully depressed and would make its click. This is the end of the downward press, ` +
+              `not the start of the paw's movement. If the cat presses more than once, use the FIRST full press. ` +
+              `Be precise; do not under-estimate — it is better to be a fraction late than early. ` +
               `Respond ONLY as JSON, no markdown: {"pressSeconds": N} where N is that time in seconds as a decimal.` }
           ]
         }],
@@ -136,32 +139,32 @@ export default async function handler(req, res) {
     ]);
     await writeFile(voicePath, voiceBuffer);
 
-    const delayMs = Math.round((pressSeconds + VOICE_GAP_SECONDS) * 1000);
-    console.log(`[finalize] voice "${voice}" at ${pressSeconds}s (+${VOICE_GAP_SECONDS}s) = ${delayMs}ms`);
+    const clickMs = Math.round(pressSeconds * 1000);
+    const voiceMs = Math.round((pressSeconds + VOICE_GAP_SECONDS) * 1000);
+    console.log(`[finalize] voice "${voice}" — click @ ${clickMs}ms, VO @ ${voiceMs}ms`);
 
-    // 4. Bake the voice into the clip, keeping the original click audio.
-    //    Primary: mix Veo's click audio with the delayed voice.
-    //    Fallback: if the clip has no audio track, lay the voice over silence.
-    const mixArgs = [
-      "-y", "-i", inPath, "-i", voicePath,
-      "-filter_complex", `[1:a]adelay=${delayMs}|${delayMs}[vo];[0:a][vo]amix=inputs=2:normalize=0:duration=longest[a]`,
+    // 4. Bake audio from scratch. We DISCARD Veo's unreliable generated audio
+    //    (it produces stray clicks at the wrong times) and build a clean track:
+    //    a synthesized button click at the detected press, then the voice just
+    //    after it. Because both are keyed to the same moment, the VO can never
+    //    play before the click.
+    //
+    //    input 0 = video (audio ignored), 1 = voice mp3,
+    //    2 = synthesized click (short decaying noise burst via lavfi).
+    const args = [
+      "-y",
+      "-i", inPath,
+      "-i", voicePath,
+      "-f", "lavfi", "-t", "0.2", "-i", "aevalsrc=0.6*random(0)*exp(-45*t):s=44100",
+      "-filter_complex",
+        `[1:a]adelay=${voiceMs}:all=1,volume=2.2,aformat=channel_layouts=stereo[vo];` +
+        `[2:a]adelay=${clickMs}:all=1,volume=0.7,aformat=channel_layouts=stereo[clk];` +
+        `[clk][vo]amix=inputs=2:normalize=0:duration=longest[a]`,
       "-map", "0:v:0", "-map", "[a]",
-      "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart",
+      "-c:v", "copy", "-c:a", "aac", "-shortest", "-movflags", "+faststart",
       outPath,
     ];
-    try {
-      await run(ffmpegPath, mixArgs);
-    } catch (mixErr) {
-      console.warn("[finalize] amix failed (likely no source audio), laying voice over silence:", mixErr.message);
-      const soloArgs = [
-        "-y", "-i", inPath, "-i", voicePath,
-        "-filter_complex", `[1:a]adelay=${delayMs}|${delayMs}[a]`,
-        "-map", "0:v:0", "-map", "[a]",
-        "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart", "-shortest",
-        outPath,
-      ];
-      await run(ffmpegPath, soloArgs);
-    }
+    await run(ffmpegPath, args);
 
     // 5. Store the final audio-baked MP4.
     const finalBuffer = await readFile(outPath);
