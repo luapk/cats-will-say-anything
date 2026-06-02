@@ -850,18 +850,13 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
               Something went wrong
             </h2>
             <div className="error-box">{generatingError}</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-              <button
-                className="btn-red"
-                style={{ width: "100%" }}
-                onClick={() => { setScreen("revealed"); setGeneratingError(""); }}
-              >
-                Try again
-              </button>
-              <button className="btn-ghost" style={{ width: "100%" }} onClick={reset}>
-                Start over
-              </button>
-            </div>
+            <button
+              className="btn-red"
+              style={{ width: "100%" }}
+              onClick={() => { setScreen("revealed"); setGeneratingError(""); }}
+            >
+              Try again
+            </button>
           </div>
         )}
 
