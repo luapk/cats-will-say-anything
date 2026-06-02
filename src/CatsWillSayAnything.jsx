@@ -4,44 +4,58 @@ import { useNavigate } from "react-router-dom";
 const VOICES = {
   "Barry White Core": {
     emoji: "🎵",
+    toneNote: "Deep African American baritone — every word arrives late and costs something",
     voiceDesc: "deep, velvet, impossibly smooth baritone — every word arrives slightly after you expected it",
     voiceStyle: "a deep, velvety, impossibly smooth Barry White style baritone with long deliberate pauses between each word, as if every syllable costs something",
     compliments: [
-      "I have seen you. And I have chosen... to remain."
+      "You... are doing your best. And that is... enough.",
+      "I have seen you. And I have chosen... to remain.",
+      "Your cooking. Is not offensive. To me. Tonight.",
+      "You opened the window when I asked. That is... a quality.",
+      "For a human... you are tolerable. In the evenings.",
+      "I notice... you made the bed today. That was... something.",
+      "You have a warmth about you. That I occasionally appreciate... from a distance.",
+      "Your voice is not unpleasant. When you are not talking too much.",
+      "I have considered leaving. And I have not. That is... my gift to you.",
+      "You try. And sometimes... that is visible.",
     ]
   },
   "French Smooth Talker": {
     emoji: "🥐",
+    toneNote: "Silky French film star — existentially resigned, philosophically disappointed but magnanimous",
     voiceDesc: "silky French accent, existentially resigned, as if complimenting you is a philosophical act they find distasteful but necessary",
     voiceStyle: "a silky French-accented voice, world-weary and existentially resigned, each word carrying the weight of a man who finds complimenting you philosophically distasteful but necessary",
     compliments: [
-      "I have seen you cry at the television. I did not leave the room. This is love, non?"
+      "You are not, how do I say... the worst thing in this apartment.",
+      "Your sense of style is limited. But it is yours. This I respect. A little.",
+      "Other people's owners are also mediocre. You are mediocre in a... familiar way.",
+      "I have seen you cry at the television. I did not leave the room. This is love, non?",
+      "You smell of effort. I find this... not entirely unpleasant.",
+      "In France, we would not keep you. But this is not France. So here we are.",
+      "You have a good heart. It is not your fault you also have that haircut.",
+      "When you laugh, it is annoying. But also, somehow, it is yours. C'est la vie.",
+      "You are improving. Slowly. It is noticeable. Barely.",
+      "You ask so little in return. This is, perhaps, your greatest quality.",
     ]
   },
-  "Noir Detective": {
-    emoji: "🔦",
-    voiceDesc: "gravelly and world-weary, like a man who has seen too much rain and too many owners and isn't sure which was worse",
-    voiceStyle: "a gravelly, world-weary film noir detective voice, raspy and slow, like a man who has seen too much rain and too many disappointments",
+  "Early 2000s Sean Connery": {
+    emoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
+    toneNote: "Measured Scottish gravitas — imperious, deliberate, delivers backhanded praise like a knighthood",
+    voiceDesc: "measured Scottish brogue, imperious and deliberate, delivering backhanded praise with the weight of a man who has seen far greater things",
+    voiceStyle: "a measured, authoritative Scottish voice in the style of Sean Connery — gravelly, deliberate, every sentence delivered with weighty significance and understated approval, as if granting a great honour reluctantly",
     compliments: [
-      "The truth about you is this: you mean well. In this city, that still counts for something."
+      "You have done adequately. I will not elaborate on this.",
+      "In my experience, most people are disappointing. You are less disappointing than most.",
+      "You remembered to feed me. This is the minimum. And yet. Here we are.",
+      "I have known greater people. I have also known worse. You are somewhere in that range.",
+      "You are not entirely without merit. Take that. Keep it. Use it wisely.",
+      "Your determination is noted. I do not share it. But I note it.",
+      "A lesser person would have given up by now. You have not. That is... something.",
+      "You have managed today. Tomorrow remains to be seen. But today. Yes.",
+      "I expect more. I always expect more. But what you gave was... sufficient.",
+      "You have stopped trying to impress me. I find this... almost refreshing.",
     ]
   },
-  "Latin Lothario": {
-    emoji: "🌹",
-    voiceDesc: "passionate and telenovela-dramatic, with occasional Spanish endearments and the energy of a man who has never once been casual about anything",
-    voiceStyle: "a passionate, intensely romantic Latin lover voice — dramatic and telenovela-sincere, with occasional Spanish endearments like 'mi amor' and 'corazón', treating every sentence like a pivotal scene in a soap opera",
-    compliments: [
-      "Mi amor. I have been watching you from this windowsill for some time now. And I have decided: you are the one. Do not ask how I know. I simply know."
-    ]
-  },
-  "90s R&B Slow Jam": {
-    emoji: "🕯️",
-    voiceDesc: "breathy Boyz II Men falsetto — achingly sincere, deeply committed, performing every sentence like it's the bridge of a candlelit slow jam",
-    voiceStyle: "a smooth, breathy 90s R&B voice in the style of Boyz II Men — earnest falsetto, achingly sincere, every word performed as if at a Valentine's Day concert with candles everywhere",
-    compliments: [
-      "Baby. I just want you to know. You are THE human. I tried to imagine another human and I couldn't. I genuinely couldn't. Congratulations."
-    ]
-  }
 };
 
 const VOICE_KEYS = Object.keys(VOICES);
@@ -79,6 +93,7 @@ export default function CatsWillSayAnything() {
   const [analysis, setAnalysis] = useState(null);
   const [generatingStep, setGeneratingStep] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [selectedCompliment, setSelectedCompliment] = useState(null);
   const [generatingError, setGeneratingError] = useState("");
   const [msgIndex, setMsgIndex] = useState(0);
   const [genMsgIndex, setGenMsgIndex] = useState(0);
@@ -157,14 +172,13 @@ export default function CatsWillSayAnything() {
     try {
       const prompt = `You are analysing a cat photo for the "Cats Will Say Anything" Temptations cat treats campaign.
 
-Assign this cat ONE of these voice archetypes based purely on their vibe, expression, posture and general energy:
-- Barry White Core
-- French Smooth Talker
-- Noir Detective
-- Latin Lothario
-- 90s R&B Slow Jam
+Look closely at the cat's fur, eyes, expression, posture, and overall energy. Make specific visual observations, then assign ONE of these three voice archetypes that best fits what you see:
 
-Write 2-3 funny, specific, observational sentences explaining WHY. Reference the cat's actual appearance — fur, expression, posture, eyes. Be affectionately cutting.
+- Barry White Core (deep African American baritone — for cats with heavy-lidded eyes, a slow blinking quality, or plush velvet-like fur that suggests smooth authority)
+- French Smooth Talker (silky French film star — for cats with a certain je ne sais quoi, an elegant but faintly disappointed bearing, or refined colouring)
+- Early 2000s Sean Connery (Scottish gravitas — for cats with weathered dignity, a no-nonsense stare, or the look of someone who has seen far greater things than you)
+
+Write 2-3 funny, specific observational sentences explaining WHY this cat matches that voice. Reference actual visual details — fur colour/texture, eye shape, posture, expression. Be affectionately cutting.
 
 Also write one punchy tagline about this specific cat. Max 8 words. Example: "This cat has seen things. Bad things."
 
@@ -188,10 +202,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
+      const parsedVd = VOICES[parsed.voice] || VOICES[VOICE_KEYS[0]];
+      setSelectedCompliment(parsedVd.compliments[Math.floor(Math.random() * parsedVd.compliments.length)]);
       setAnalysis(parsed);
       setScreen("revealed");
     } catch {
       const fallback = VOICE_KEYS[Math.floor(Math.random() * VOICE_KEYS.length)];
+      const fallbackVd = VOICES[fallback];
+      setSelectedCompliment(fallbackVd.compliments[Math.floor(Math.random() * fallbackVd.compliments.length)]);
       setAnalysis({
         voice: fallback,
         reasoning: "Analysis encountered resistance. Your cat refused to cooperate with the process. Which, frankly, tells us everything we need to know.",
@@ -209,7 +227,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
     try {
       const vd = VOICES[analysis.voice];
-      const compliment = vd.compliments[0];
+      const compliment = selectedCompliment || vd.compliments[0];
 
       // Start generation (video + audio baked in one call)
       setGeneratingStep("On set. Briefing the cat...");
@@ -270,6 +288,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
     setRevealStep(0);
     setElapsedSeconds(0);
     setGeneratingStep("");
+    setSelectedCompliment(null);
   };
 
   const vd = analysis ? VOICES[analysis.voice] : null;
@@ -765,7 +784,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                   className={`compliment-item visible`}
                   style={{ animationDelay: "0s" }}
                 >
-                  <span className="compliment-text">"{vd.compliments[0]}"</span>
+                  <span className="compliment-text">"{selectedCompliment || vd.compliments[0]}"</span>
                 </div>
               </div>
             )}

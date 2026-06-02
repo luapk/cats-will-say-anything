@@ -22,14 +22,16 @@ function extractErrorMessage(data) {
 function buildPrompt(voiceStyle, compliment) {
   return (
     `The cat from the reference photo walks slowly across a bright solid yellow background ` +
-    `toward a large circular button on the floor. The button is yellow and red, ` +
-    `branded with the Temptations logo. The walk is unhurried — almost insulting in its ` +
-    `lack of urgency. The cat stops directly in front of the button, looks at camera ` +
-    `for one beat, then presses the button firmly with one paw using minimum effort. ` +
-    `The button click sound plays. Then — only after the button is pressed — ` +
+    `toward a large novelty button on the floor. The button has a wide rounded red base ` +
+    `with a yellow dome-shaped top cap, and a small white cloud-shaped badge in the centre ` +
+    `that reads "Temptations" in black lettering. ` +
+    `The cat's walk is unhurried — almost insulting in its lack of urgency. ` +
+    `The cat stops directly in front of the button, looks at camera for one beat, ` +
+    `then presses the yellow dome firmly with one paw using minimum effort. ` +
+    `The button makes a satisfying click. Then — only after the button is pressed — ` +
     `a voice-over in ${voiceStyle} says: "${compliment}" ` +
     `While the voice-over plays, the cat turns its head and stares directly into the camera ` +
-    `with a expression of deep, grumpy contempt — unblinking, utterly unbothered. ` +
+    `with an expression of deep, grumpy contempt — unblinking, utterly unbothered. ` +
     `No voice plays before the button press. Silence before the press, voice after. ` +
     `Clean yellow studio background, cinematic lighting, shallow depth of field, ` +
     `9:16 portrait, 8 seconds.`
