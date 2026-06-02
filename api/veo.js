@@ -79,6 +79,8 @@ function buildPrompt(voiceStyle, compliment) {
     `\n` +
     `WHILE THE VOICE PLAYS: the cat turns its head and stares directly into the camera — deeply grumpy, unblinking, utterly unbothered. ` +
     `\n\n` +
+    `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame with its expression. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. ` +
+    `\n\n` +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );

@@ -812,7 +812,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             <span className="cwsa-title-yellow">Say Anything</span>
           </h1>
           {screen === "upload" && (
-            <p className="cwsa-tagline">Even compliment the owner.</p>
+            <p className="cwsa-tagline">for Temptations.</p>
           )}
         </div>
 
@@ -906,7 +906,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                 <div className="section-label">Voice assigned</div>
                 {revealStep >= 1 && (
                   <div className="voice-badge">
-                    <span>{vd.emoji}</span>
                     <span>{analysis.voice}</span>
                   </div>
                 )}

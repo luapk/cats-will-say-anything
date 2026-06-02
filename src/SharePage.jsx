@@ -236,6 +236,26 @@ export default function SharePage() {
           transition: all 0.2s;
         }
         .btn-buy:hover { background: #222; transform: translateY(-2px); }
+        .btn-try {
+          display: block;
+          width: 100%;
+          text-align: center;
+          background: #ffffff;
+          color: #0A0A0A;
+          border: 2.5px solid #0A0A0A;
+          border-radius: 100px;
+          padding: 14px 32px;
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
+          font-size: 17px;
+          font-weight: 900;
+          cursor: pointer;
+          text-decoration: none;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          transition: all 0.2s;
+          margin-top: 12px;
+        }
+        .btn-try:hover { background: #FFED00; transform: translateY(-2px); }
       `}</style>
 
       <div className="sp-wrap">
@@ -290,8 +310,9 @@ export default function SharePage() {
             rel="noopener noreferrer"
             className="btn-buy"
           >
-            Buy Temptations →
+            Shop Online →
           </a>
+          <Link to="/" className="btn-try">Try again?</Link>
         </div>
       </div>
     </>
