@@ -813,7 +813,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* ── GENERATING ── */}
         {screen === "generating" && (() => {
-          const LOADER_STILLS = ["/loader-clap.png", "/loader-camera.png", "/loader-boom.png"];
+          const LOADER_STILLS = ["/director.png", "/camera.png", "/boom.png"];
           const phase = loaderImgIndex % 4;
           const isUserPhoto = phase === 3;
           const imgSrc = isUserPhoto ? catImage : LOADER_STILLS[phase];
