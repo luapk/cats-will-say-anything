@@ -1,14 +1,18 @@
-// Finalize: take a SILENT Veo clip and bake the audio track from scratch —
-// a crisp click.mp3 at the exact button-press moment, then the ElevenLabs voice
-// just after it. The press moment is found by AUDIO-ONSET DETECTION on Veo's own
-// click (frame-accurate signal processing), semantically gated by a coarse Gemini
-// visual estimate, with a fixed fallback. Veo's original audio is discarded.
+// Finalize: take a Veo clip (no usable audio) and bake the audio track from
+// scratch — a crisp click.mp3 at the exact button-press moment, then the
+// ElevenLabs voice just after it. The press moment is found by VISUAL MOTION
+// DETECTION (the frame of peak inter-frame motion = the paw striking the button),
+// semantically gated by a coarse Gemini visual estimate, with a fixed fallback.
+// Veo's original audio is discarded entirely.
 //
-// Why onset detection: Veo co-generates its click sound synchronized to its own
-// visual button-press, so the first sound in the otherwise-silent clip marks the
-// real press to ~10-40ms — far tighter than asking an LLM to eyeball frames
-// (which drifts ±0.5s). Gemini only supplies a rough window so a stray early
-// sound can never be mistaken for the press. The last frame is frozen so a long
+// Why motion detection (not Veo's audio): asking Veo for any sound — even a
+// single click — trips its audio safety filter, so the clip is generated with no
+// audio instructions at all. We therefore can't rely on a click to time against.
+// Instead we measure per-frame motion energy: the cat reaching out and striking
+// the button is the dominant motion in the opening seconds, and its peak pins the
+// contact frame far more tightly (~1 frame) than an LLM eyeballing frames (±0.5s).
+// Gemini supplies only a rough window so unrelated motion (a twitch, the crash
+// zoom) can never be mistaken for the press. The last frame is frozen so a long
 // or late voiceover is never cut off.
 //
 // POST { videoUrl, voice, compliment } → { url, pressSeconds, pressSource }
@@ -41,11 +45,10 @@ const VOICE_IDS = {
 
 // Press-detection tuning.
 const DEFAULT_PRESS_SECONDS = 1.4;  // blind fallback (Veo presses within first ~2s)
-const ONSET_MIN_SECONDS = 0.2;      // ignore sound at the very start (encode pop)
-const ONSET_MAX_SECONDS = 4.5;      // ignore late sounds (e.g. crash-zoom whoosh)
-const GEMINI_TOLERANCE = 0.8;       // audio onset must be within this of Gemini to be trusted
-const SILENCE_NOISE_DB = "-32dB";   // threshold separating the click from silence
-const SILENCE_MIN_DURATION = 0.04;  // min silence length silencedetect will report
+const PRESS_MIN_SECONDS = 0.2;      // ignore the very start (encode warm-up)
+const PRESS_MAX_SECONDS = 4.5;      // ignore late motion (e.g. the crash-zoom)
+const GEMINI_WINDOW = 0.7;          // snap to the motion peak within ± this of Gemini's guess
+const MOTION_MIN_ENERGY = 0.8;      // a peak below this means "no real motion found"
 
 // Audio layout (relative to the detected press).
 const VOICE_GAP_SECONDS = 0.45;     // click rings out, then the voice begins
@@ -83,25 +86,37 @@ async function mediaDuration(path) {
   return parseDuration(stderr);
 }
 
-// Audio-onset detection: every moment sound resumes after silence. With Veo's
-// clip being silent apart from the single press click, the first onset IS the
-// click. Returns plausible onsets (seconds) sorted ascending, plus clip duration.
-async function detectAudioOnsets(inPath) {
-  const { stderr } = await capture(ffmpegPath, [
+// Visual motion detection: measure per-frame motion energy (mean luma of the
+// frame-to-frame difference). The paw reaching out and striking the button is
+// the dominant motion in the opening seconds, so the energy peak pins the contact
+// frame. Returns { samples:[{t,e}], duration }.
+async function detectMotion(inPath) {
+  // metadata=print writes to stdout (file=-); ffmpeg's own logs go to stderr.
+  const { stdout, stderr } = await capture(ffmpegPath, [
     "-hide_banner", "-i", inPath,
-    "-af", `silencedetect=noise=${SILENCE_NOISE_DB}:d=${SILENCE_MIN_DURATION}`,
+    "-vf", "tblend=all_mode=difference,signalstats,metadata=print:file=-",
     "-f", "null", "-",
   ]);
   const duration = parseDuration(stderr);
-  const onsets = [];
-  const re = /silence_end:\s*([0-9.]+)/g;
-  let m;
-  while ((m = re.exec(stderr)) !== null) {
-    const t = Number(m[1]);
-    if (Number.isFinite(t) && t >= ONSET_MIN_SECONDS && t <= ONSET_MAX_SECONDS) onsets.push(t);
+  const samples = [];
+  let t = null;
+  for (const line of stdout.split("\n")) {
+    const tm = line.match(/pts_time:([0-9.]+)/);
+    if (tm) { t = Number(tm[1]); continue; }
+    const em = line.match(/YAVG=([0-9.]+)/);
+    if (em && t != null) samples.push({ t, e: Number(em[1]) });
   }
-  onsets.sort((a, b) => a - b);
-  return { onsets, duration };
+  return { samples, duration };
+}
+
+// Highest-energy sample within [lo, hi]; null if none meet the motion floor.
+function motionPeak(samples, lo, hi) {
+  let best = null;
+  for (const s of samples) {
+    if (s.t < lo || s.t > hi) continue;
+    if (!best || s.e > best.e) best = s;
+  }
+  return best && best.e >= MOTION_MIN_ENERGY ? best.t : null;
 }
 
 // Coarse semantic estimate: roughly when does Gemini see the paw hit the button?
@@ -137,14 +152,17 @@ async function detectPressVisual(videoBase64, key) {
   }
 }
 
-// Reconcile the precise audio signal with the coarse visual estimate.
-function resolvePress(onsets, visual) {
+// Reconcile the precise motion signal with the coarse visual estimate.
+function resolvePress(samples, visual) {
   if (visual != null) {
-    const near = onsets.find(o => Math.abs(o - visual) <= GEMINI_TOLERANCE);
-    if (near != null) return { pressSeconds: near, source: "audio+visual" };
+    // Snap to the motion peak near Gemini's guess (precise), else trust Gemini.
+    const peak = motionPeak(samples, visual - GEMINI_WINDOW, visual + GEMINI_WINDOW);
+    if (peak != null) return { pressSeconds: peak, source: "motion+visual" };
     return { pressSeconds: visual, source: "visual" };
   }
-  if (onsets.length) return { pressSeconds: onsets[0], source: "audio" };
+  // No visual estimate: take the dominant motion in the plausible press window.
+  const peak = motionPeak(samples, PRESS_MIN_SECONDS, PRESS_MAX_SECONDS);
+  if (peak != null) return { pressSeconds: peak, source: "motion" };
   return { pressSeconds: DEFAULT_PRESS_SECONDS, source: "default" };
 }
 
@@ -217,21 +235,20 @@ export default async function handler(req, res) {
     await writeFile(inPath, videoBuffer);
 
     // 2. In parallel: generate the voice, get the coarse visual press estimate,
-    //    detect precise audio onsets, and resolve the click asset.
-    const [voiceBuffer, visual, { onsets, duration }, clickPath] = await Promise.all([
+    //    detect per-frame motion, and resolve the click asset.
+    const [voiceBuffer, visual, { samples, duration }, clickPath] = await Promise.all([
       generateVoice(voiceId, compliment, elevenKey),
       detectPressVisual(videoBuffer.toString("base64"), googleKey),
-      detectAudioOnsets(inPath),
+      detectMotion(inPath),
       resolveClickPath(),
     ]);
     await writeFile(voicePath, voiceBuffer);
 
     // 3. Resolve the press moment from the two signals.
     const videoLen = duration || (await mediaDuration(inPath)) || 8;
-    let { pressSeconds, source } = resolvePress(onsets, visual);
-    pressSeconds = Math.min(Math.max(pressSeconds, ONSET_MIN_SECONDS), videoLen - 0.1);
-    console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} ` +
-      `(onsets=[${onsets.map(o => o.toFixed(2)).join(",")}], visual=${visual})`);
+    let { pressSeconds, source } = resolvePress(samples, visual);
+    pressSeconds = Math.min(Math.max(pressSeconds, PRESS_MIN_SECONDS), videoLen - 0.1);
+    console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} (visual=${visual})`);
 
     // 4. Compute timing and the freeze-extend needed so the voice is never cut.
     const voiceLen = (await mediaDuration(voicePath)) || 4;
