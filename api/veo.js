@@ -27,13 +27,16 @@ function buildPrompt(voiceStyle, compliment) {
     `This cat is the star of the video. ` +
     `\n\n` +
     `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
-    `The button is a novelty cat-treat button: chunky rounded red base, yellow dome top, ` +
-    `white cloud-shaped badge in the centre with "Temptations" written in black. ` +
-    `Reproduce this button design faithfully. ` +
+    `THE BUTTON — reproduce faithfully from this description: a wide, low, dome-shaped base ` +
+    `in terracotta-orange, very rounded at the edges, like a large flattened dome or thick puck. ` +
+    `Sitting centred on top is a smaller bright yellow cap — a flattened disc with a domed top, ` +
+    `noticeably smaller in diameter than the base beneath it. ` +
+    `On the top of the yellow cap is a white cloud-shaped logo sticker with a yellow outline, ` +
+    `reading "Temptations" in bold italic black script. The button sits directly on the yellow floor. ` +
     `\n\n` +
     `ACTION — follow this exact sequence: ` +
     `(1) The video opens with the cat already positioned in front of the button. ` +
-    `Without hesitation, it presses the yellow dome firmly with one paw. Minimum effort. Maximum contempt. ` +
+    `Without hesitation, it presses the yellow cap firmly with one paw. Minimum effort. Maximum contempt. ` +
     `(2) The instant the button is pressed, a voice-over begins — ${voiceStyle} — saying: "${compliment}" ` +
     `(3) While the voice-over plays, the cat slowly turns its head and holds a direct, unblinking gaze into the camera. ` +
     `The expression is deeply, profoundly grumpy. Utterly unbothered. Contempt at rest. ` +
@@ -74,7 +77,12 @@ export default async function handler(req, res) {
         prompt: buildPrompt(voiceStyle, compliment),
         image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
       }],
-      parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
+      parameters: {
+        aspectRatio: "9:16",
+        durationSeconds: 8,
+        sampleCount: 1,
+        negativePrompt: "human, person, people, man, woman, child, human hands, human arms, human legs, human body, human face, human figure, owner, any human appearing in frame",
+      },
     };
 
     let r, data;

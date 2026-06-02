@@ -99,10 +99,39 @@ export default function SharePage() {
         }
         .sp-header {
           width: 100%;
-          padding: 16px 20px 12px;
+          padding: 16px 20px 10px;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
+          gap: 2px;
+        }
+        .sp-brand-sub {
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 4px;
+          text-transform: uppercase;
+          color: #0A0A0A;
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
+          margin-bottom: 2px;
+        }
+        .sp-title {
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
+          font-weight: 900;
+          font-size: clamp(24px, 5.5vw, 36px);
+          color: #ffffff;
+          -webkit-text-stroke: 5px #000000;
+          paint-order: stroke fill;
+          text-shadow: 7px 4px 0 #000000;
+          line-height: 0.92;
+          letter-spacing: -1px;
+          text-transform: uppercase;
+          text-align: center;
+        }
+        .sp-title-yellow {
+          color: #FFED00;
+          -webkit-text-stroke: 5px #000000;
+          paint-order: stroke fill;
         }
         .sp-video-wrap {
           width: 100%;
@@ -219,6 +248,11 @@ export default function SharePage() {
             style={{ height: 120, objectFit: "contain" }}
             onError={(e) => { e.target.style.display = "none"; }}
           />
+          <div className="sp-brand-sub">presents</div>
+          <h1 className="sp-title">
+            <span>Cats Will</span><br />
+            <span className="sp-title-yellow">Say Anything</span>
+          </h1>
         </div>
 
         <div className="sp-video-wrap">
