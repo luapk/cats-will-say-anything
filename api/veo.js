@@ -85,7 +85,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "imageBase64, voiceStyle, and compliment are required" });
     }
 
-    const body = {
+    // Primary: use the cat photo as an ASSET reference image (Veo 3.1 "ingredients
+    // to video"). This preserves the cat's appearance WITHOUT pinning it as frame 0.
+    // Fallback: if the API rejects reference images (preview support is patchy on the
+    // Gemini Developer endpoint), retry with the legacy image-to-video first-frame field.
+    const refBody = {
+      instances: [{
+        prompt: buildPrompt(voiceStyle, compliment),
+        referenceImages: [{
+          image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
+          referenceType: "asset",
+        }],
+      }],
+      parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
+    };
+    const firstFrameBody = {
       instances: [{
         prompt: buildPrompt(voiceStyle, compliment),
         image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
@@ -93,22 +107,43 @@ export default async function handler(req, res) {
       parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
     };
 
+    const postVeo = async (payload) => {
+      const resp = await fetch(`${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      return { resp, json: await resp.json() };
+    };
+
+    let body = refBody;
+    let usedFallback = false;
     let r, data;
     for (let attempt = 0; attempt < 4; attempt++) {
       if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
-      r = await fetch(`${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      data = await r.json();
+      ({ resp: r, json: data } = await postVeo(body));
       if (r.ok) break;
       console.error(`[veo POST] attempt ${attempt + 1} failed — HTTP ${r.status}:`, JSON.stringify(data));
+
+      // If reference images aren't supported, fall back to first-frame once.
+      const errStr = JSON.stringify(data).toLowerCase();
+      const refUnsupported = !usedFallback && body === refBody &&
+        (errStr.includes("referenceimage") || errStr.includes("reference_image") ||
+         errStr.includes("not supported") || errStr.includes("unknown name") ||
+         errStr.includes("invalid")) ;
+      if (refUnsupported) {
+        console.log("[veo POST] referenceImages rejected — falling back to first-frame image");
+        body = firstFrameBody;
+        usedFallback = true;
+        continue; // immediate retry with fallback body, no backoff
+      }
+
       const isRetryable = r.status === 429 || r.status === 503;
       if (!isRetryable || attempt === 3) {
         return res.status(r.status).json({ error: extractErrorMessage(data) });
       }
     }
+    console.log(`[veo POST] started using ${usedFallback ? "first-frame image" : "asset referenceImages"}`);
 
     const operationName = data?.name;
     if (!operationName) {
