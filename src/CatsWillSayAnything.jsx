@@ -78,6 +78,7 @@ export default function CatsWillSayAnything() {
   const [imageMimeType, setImageMimeType] = useState("image/jpeg");
   const [analysis, setAnalysis] = useState(null);
   const [generatingStep, setGeneratingStep] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [generatingError, setGeneratingError] = useState("");
   const [msgIndex, setMsgIndex] = useState(0);
   const [genMsgIndex, setGenMsgIndex] = useState(0);
@@ -99,6 +100,7 @@ export default function CatsWillSayAnything() {
   useEffect(() => {
     if (screen === "generating") {
       setGenMsgIndex(0);
+      setElapsedSeconds(0);
       genMsgIntervalRef.current = setInterval(() => {
         setGenMsgIndex(prev => Math.min(prev + 1, GENERATING_STEPS.length - 1));
       }, 22000);
@@ -210,7 +212,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const compliment = vd.compliments[0];
 
       // Start generation (video + audio baked in one call)
-      setGeneratingStep("Directing your cat...");
+      setGeneratingStep("On set. Briefing the cat...");
       const startResp = await fetch("/api/veo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -227,15 +229,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       }
       const { operationName } = startData;
 
+      // Clear initial step so GENERATING_STEPS cycle shows during polling
+      setGeneratingStep("");
+
       // Poll until done (max 10 min)
       let finalUrl = null;
       for (let i = 0; i < 120; i++) {
         await new Promise(r => setTimeout(r, 5000));
-        const elapsed = Math.floor(i * 5);
-        const mins = Math.floor(elapsed / 60);
-        const secs = elapsed % 60;
-        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        setGeneratingStep(`Generating film... ${timeStr}`);
+        setElapsedSeconds((i + 1) * 5);
         const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}&t=${Date.now()}`);
         const pollData = await pollResp.json();
         if (pollData.status === "done") { finalUrl = pollData.url; break; }
@@ -267,6 +268,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
     setAnalysis(null);
     setGeneratingError("");
     setRevealStep(0);
+    setElapsedSeconds(0);
+    setGeneratingStep("");
   };
 
   const vd = analysis ? VOICES[analysis.voice] : null;
@@ -531,13 +534,26 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           width: 120px; height: 120px;
           display: flex; align-items: center; justify-content: center;
         }
-        .cat-ring {
-          position: absolute; top: 0; left: 0;
-          width: 120px; height: 120px;
-          animation: spin 2s linear infinite;
-        }
-        .cat-ring-arc {
-          transform-origin: center;
+        .cat-ring-wrap::after {
+          content: "";
+          position: absolute;
+          inset: -10px;
+          border-radius: 50%;
+          background: conic-gradient(
+            from 0deg,
+            transparent 0%,
+            transparent 15%,
+            rgba(10,10,10,0.08) 25%,
+            rgba(10,10,10,0.25) 40%,
+            #0A0A0A 65%,
+            rgba(10,10,10,0.25) 80%,
+            rgba(10,10,10,0.08) 88%,
+            transparent 95%,
+            transparent 100%
+          );
+          -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 8px));
+          animation: spin 1.8s linear infinite;
         }
 
         .screen {
@@ -602,6 +618,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           color: #0A0A0A;
           text-align: center;
           min-height: 24px;
+        }
+        .gen-elapsed {
+          font-size: 11px;
+          font-weight: 700;
+          color: #6B4F00;
+          text-align: center;
+          font-family: 'Roboto', sans-serif;
+          letter-spacing: 0.5px;
         }
         .gen-hint {
           font-size: 12px;
@@ -687,19 +711,15 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* ── ANALYZING ── */}
         {screen === "analyzing" && (
-          <div className="screen fade-up" style={{ alignItems: "center" }}>
-            {catImage && (
-              <img src={catImage} alt="cat" className="cat-circle" style={{ width: 120, height: 120 }} />
-            )}
-            <span style={{ fontSize: "44px", animation: "pawBounce 0.9s ease-in-out infinite" }}>🐾</span>
+          <div className="screen fade-up" style={{ alignItems: "center", gap: "20px" }}>
+            <div className="cat-ring-wrap">
+              {catImage && (
+                <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
+              )}
+            </div>
             <p style={{ fontSize: "17px", fontWeight: 800, color: "#0A0A0A", textAlign: "center", minHeight: "26px" }}>
               {ANALYZING_MESSAGES[msgIndex]}
             </p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {[0, 1, 2].map(i => (
-                <div key={i} className="dot" style={{ animationDelay: `${i * 0.18}s` }} />
-              ))}
-            </div>
           </div>
         )}
 
@@ -765,21 +785,22 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* ── GENERATING ── */}
         {screen === "generating" && (
-          <div className="screen fade-up" style={{ alignItems: "center", gap: "24px" }}>
+          <div className="screen fade-up" style={{ alignItems: "center", gap: "20px" }}>
             <div className="cat-ring-wrap">
               {catImage && (
                 <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
               )}
-              <svg className="cat-ring" viewBox="0 0 120 120">
-                <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="5" />
-                <circle cx="60" cy="60" r="54" fill="none" stroke="#0A0A0A" strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeDasharray="339.3"
-                  strokeDashoffset="254.5"
-                  className="cat-ring-arc" />
-              </svg>
             </div>
-            <p className="gen-step">{generatingStep || GENERATING_STEPS[genMsgIndex]}</p>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+              <p className="gen-step">{generatingStep || GENERATING_STEPS[genMsgIndex]}</p>
+              {elapsedSeconds > 0 && (
+                <p className="gen-elapsed">
+                  {elapsedSeconds >= 60
+                    ? `${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s elapsed`
+                    : `${elapsedSeconds}s elapsed`}
+                </p>
+              )}
+            </div>
             <p className="gen-hint">This takes a few minutes. Don't close the tab.</p>
           </div>
         )}
