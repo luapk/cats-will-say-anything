@@ -87,6 +87,7 @@ export default function CatsWillSayAnything() {
   const [generatingStep, setGeneratingStep] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [selectedCompliment, setSelectedCompliment] = useState(null);
+  const [loaderImgIndex, setLoaderImgIndex] = useState(0);
   const [generatingError, setGeneratingError] = useState("");
   const [msgIndex, setMsgIndex] = useState(0);
   const [genMsgIndex, setGenMsgIndex] = useState(0);
@@ -95,6 +96,7 @@ export default function CatsWillSayAnything() {
   const fileInputRef = useRef(null);
   const msgIntervalRef = useRef(null);
   const genMsgIntervalRef = useRef(null);
+  const loaderImgIntervalRef = useRef(null);
 
   useEffect(() => {
     if (screen === "analyzing") {
@@ -109,11 +111,18 @@ export default function CatsWillSayAnything() {
     if (screen === "generating") {
       setGenMsgIndex(0);
       setElapsedSeconds(0);
+      setLoaderImgIndex(0);
       genMsgIntervalRef.current = setInterval(() => {
         setGenMsgIndex(prev => Math.min(prev + 1, GENERATING_STEPS.length - 1));
       }, 22000);
+      loaderImgIntervalRef.current = setInterval(() => {
+        setLoaderImgIndex(prev => prev + 1);
+      }, 18000);
     }
-    return () => clearInterval(genMsgIntervalRef.current);
+    return () => {
+      clearInterval(genMsgIntervalRef.current);
+      clearInterval(loaderImgIntervalRef.current);
+    };
   }, [screen]);
 
   useEffect(() => {
@@ -282,6 +291,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
     setElapsedSeconds(0);
     setGeneratingStep("");
     setSelectedCompliment(null);
+    setLoaderImgIndex(0);
   };
 
   const vd = analysis ? VOICES[analysis.voice] : null;
@@ -340,6 +350,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @keyframes loaderFade {
+          from { opacity: 0; transform: scale(0.88); }
+          to { opacity: 1; transform: scale(1); }
         }
 
         .cwsa-wrap {
@@ -798,11 +812,31 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         )}
 
         {/* ── GENERATING ── */}
-        {screen === "generating" && (
+        {screen === "generating" && (() => {
+          const LOADER_STILLS = ["/loader-clap.png", "/loader-camera.png", "/loader-boom.png"];
+          const phase = loaderImgIndex % 4;
+          const isUserPhoto = phase === 3;
+          const imgSrc = isUserPhoto ? catImage : LOADER_STILLS[phase];
+          return (
           <div className="screen fade-up" style={{ alignItems: "center", gap: "20px" }}>
             <div className="cat-ring-wrap">
-              {catImage && (
-                <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
+              {imgSrc && (
+                <img
+                  key={loaderImgIndex}
+                  src={imgSrc}
+                  alt="loading"
+                  style={isUserPhoto ? {
+                    width: 100, height: 100,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "3px solid #0A0A0A",
+                    animation: "loaderFade 0.4s ease forwards",
+                  } : {
+                    width: 96, height: 96,
+                    objectFit: "contain",
+                    animation: "loaderFade 0.4s ease forwards",
+                  }}
+                />
               )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
@@ -817,7 +851,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             </div>
             <p className="gen-hint">This takes a few minutes. Don't close the tab.</p>
           </div>
-        )}
+          );
+        })()}
 
         {/* ── ERROR ── */}
         {screen === "error" && (

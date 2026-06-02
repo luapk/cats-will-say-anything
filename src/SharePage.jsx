@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 
 const TikTokIcon = () => (
@@ -34,6 +34,14 @@ export default function SharePage() {
 
   const [copied, setCopied] = useState(false);
   const [copiedPlatform, setCopiedPlatform] = useState(null);
+  const videoRef = useRef(null);
+
+  // Skip the first ~12 frames (0.5s) to avoid the static reference image
+  // that Veo places at frame 0 when given a subject reference photo.
+  const skipFirstFrame = () => {
+    const v = videoRef.current;
+    if (v && v.currentTime < 0.5) v.currentTime = 0.5;
+  };
 
   const copyLink = async (platform) => {
     try {
@@ -257,11 +265,14 @@ export default function SharePage() {
 
         <div className="sp-video-wrap">
           <video
+            ref={videoRef}
             src={videoUrl}
             className="sp-video"
             controls
             playsInline
             autoPlay
+            onLoadedMetadata={skipFirstFrame}
+            onCanPlay={skipFirstFrame}
           />
         </div>
 

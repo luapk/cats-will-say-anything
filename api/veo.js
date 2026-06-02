@@ -34,14 +34,20 @@ function buildPrompt(voiceStyle, compliment) {
     `On the top of the yellow cap is a white cloud-shaped logo sticker with a yellow outline, ` +
     `reading "Temptations" in bold italic black script. The button sits directly on the yellow floor. ` +
     `\n\n` +
-    `ACTION — follow this exact sequence: ` +
-    `(1) The video opens with the cat already positioned in front of the button. ` +
-    `Without hesitation, it presses the yellow cap firmly with one paw. Minimum effort. Maximum contempt. ` +
-    `(2) The instant the button is pressed, a voice-over begins — ${voiceStyle} — saying: "${compliment}" ` +
-    `(3) While the voice-over plays, the cat slowly turns its head and holds a direct, unblinking gaze into the camera. ` +
-    `The expression is deeply, profoundly grumpy. Utterly unbothered. Contempt at rest. ` +
+    `STRICT TIMING — follow this sequence exactly, in this order, no exceptions: ` +
+    `\n` +
+    `STEP 1 — VISUAL ONLY, NO AUDIO: The video opens in silence. The cat is already in front of the button. ` +
+    `It presses the yellow cap firmly with one paw. The first sound in the entire video is the physical click of the button. ` +
+    `There is NO voice before this moment. Zero. Silence until the paw makes contact. ` +
+    `\n` +
+    `STEP 2 — VOICE STARTS ON THE PRESS: The very instant the paw touches the button — not before, exactly then — ` +
+    `a voice-over in the style of ${voiceStyle} begins speaking: "${compliment}" ` +
+    `The voice is triggered by the button press. The button is the trigger. ` +
+    `\n` +
+    `STEP 3 — GRUMPY STARE: While the voice-over plays, the cat turns its head and stares directly into the camera. ` +
+    `Deeply grumpy. Unblinking. Utterly unbothered. Contempt at rest. ` +
     `\n\n` +
-    `AUDIO RULE: Complete silence before the button press. Voice starts only on the press. No exceptions. ` +
+    `DO NOT play any voice, speech, or dialogue before Step 2. The audio track must be silent for Step 1. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
 }
