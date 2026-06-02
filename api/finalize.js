@@ -1,14 +1,23 @@
-// Finalize: take a SILENT Veo clip (click only), detect the button-press moment
-// with Gemini, generate the persona voice with ElevenLabs, and bake the voice
-// into the MP4 with ffmpeg — anchored just after the press so it can never play
-// early. Returns the public URL of the final, shareable, audio-baked video.
+// Finalize: take a SILENT Veo clip and bake the audio track from scratch —
+// a crisp click.mp3 at the exact button-press moment, then the ElevenLabs voice
+// just after it. The press moment is found by AUDIO-ONSET DETECTION on Veo's own
+// click (frame-accurate signal processing), semantically gated by a coarse Gemini
+// visual estimate, with a fixed fallback. Veo's original audio is discarded.
 //
-// POST { videoUrl, voice, compliment } → { url }
+// Why onset detection: Veo co-generates its click sound synchronized to its own
+// visual button-press, so the first sound in the otherwise-silent clip marks the
+// real press to ~10-40ms — far tighter than asking an LLM to eyeball frames
+// (which drifts ±0.5s). Gemini only supplies a rough window so a stray early
+// sound can never be mistaken for the press. The last frame is frozen so a long
+// or late voiceover is never cut off.
+//
+// POST { videoUrl, voice, compliment } → { url, pressSeconds, pressSource }
 
 import { put } from "@vercel/blob";
 import { randomBytes } from "crypto";
 import { execFile } from "child_process";
 import { writeFile, readFile, unlink } from "fs/promises";
+import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import ffmpegPath from "ffmpeg-static";
@@ -30,9 +39,19 @@ const VOICE_IDS = {
   "Early 2000s Sean Connery": "KJEm37Eur9OPxG4df2Cu",
 };
 
-const DEFAULT_PRESS_SECONDS = 2.0; // fallback if detection fails
-const VOICE_GAP_SECONDS = 0.15;    // start voice just after the click
+// Press-detection tuning.
+const DEFAULT_PRESS_SECONDS = 1.4;  // blind fallback (Veo presses within first ~2s)
+const ONSET_MIN_SECONDS = 0.2;      // ignore sound at the very start (encode pop)
+const ONSET_MAX_SECONDS = 4.5;      // ignore late sounds (e.g. crash-zoom whoosh)
+const GEMINI_TOLERANCE = 0.8;       // audio onset must be within this of Gemini to be trusted
+const SILENCE_NOISE_DB = "-32dB";   // threshold separating the click from silence
+const SILENCE_MIN_DURATION = 0.04;  // min silence length silencedetect will report
 
+// Audio layout (relative to the detected press).
+const VOICE_GAP_SECONDS = 0.45;     // click rings out, then the voice begins
+const TAIL_SECONDS = 0.6;           // breathing room held after the voice ends
+
+// execFile that rejects on a non-zero exit.
 function run(bin, args) {
   return new Promise((resolve, reject) => {
     execFile(bin, args, { maxBuffer: 1024 * 1024 * 64 }, (err, stdout, stderr) => {
@@ -42,8 +61,52 @@ function run(bin, args) {
   });
 }
 
-// Ask Gemini for the exact second the paw presses the button down.
-async function detectPressSeconds(videoBase64, key) {
+// execFile that NEVER rejects — ffmpeg returns non-zero for probe-only runs
+// (no output file), but its diagnostics on stderr are exactly what we want.
+function capture(bin, args) {
+  return new Promise((resolve) => {
+    execFile(bin, args, { maxBuffer: 1024 * 1024 * 64 }, (err, stdout, stderr) => {
+      resolve({ stdout: stdout || "", stderr: stderr || "" });
+    });
+  });
+}
+
+// Parse "Duration: HH:MM:SS.ss" out of ffmpeg's stderr.
+function parseDuration(stderr) {
+  const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  return Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+}
+
+async function mediaDuration(path) {
+  const { stderr } = await capture(ffmpegPath, ["-hide_banner", "-i", path]);
+  return parseDuration(stderr);
+}
+
+// Audio-onset detection: every moment sound resumes after silence. With Veo's
+// clip being silent apart from the single press click, the first onset IS the
+// click. Returns plausible onsets (seconds) sorted ascending, plus clip duration.
+async function detectAudioOnsets(inPath) {
+  const { stderr } = await capture(ffmpegPath, [
+    "-hide_banner", "-i", inPath,
+    "-af", `silencedetect=noise=${SILENCE_NOISE_DB}:d=${SILENCE_MIN_DURATION}`,
+    "-f", "null", "-",
+  ]);
+  const duration = parseDuration(stderr);
+  const onsets = [];
+  const re = /silence_end:\s*([0-9.]+)/g;
+  let m;
+  while ((m = re.exec(stderr)) !== null) {
+    const t = Number(m[1]);
+    if (Number.isFinite(t) && t >= ONSET_MIN_SECONDS && t <= ONSET_MAX_SECONDS) onsets.push(t);
+  }
+  onsets.sort((a, b) => a - b);
+  return { onsets, duration };
+}
+
+// Coarse semantic estimate: roughly when does Gemini see the paw hit the button?
+// Used only as a sanity window around the precise audio onset.
+async function detectPressVisual(videoBase64, key) {
   try {
     const r = await fetch(`${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
       method: "POST",
@@ -62,32 +125,56 @@ async function detectPressSeconds(videoBase64, key) {
       }),
     });
     const data = await r.json();
-    if (!r.ok) { console.error("[finalize] gemini detect failed:", JSON.stringify(data)); return DEFAULT_PRESS_SECONDS; }
+    if (!r.ok) { console.error("[finalize] gemini detect failed:", JSON.stringify(data)); return null; }
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const clean = text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
+    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
     const t = Number(parsed.pressSeconds);
-    if (!Number.isFinite(t) || t < 0 || t > 7.5) {
-      console.warn("[finalize] press time out of range, using fallback:", t);
-      return DEFAULT_PRESS_SECONDS;
-    }
-    console.log("[finalize] detected press seconds:", t);
+    if (!Number.isFinite(t) || t < 0 || t > 7.5) return null;
     return t;
   } catch (e) {
-    console.error("[finalize] press detection error, using fallback:", e.message);
-    return DEFAULT_PRESS_SECONDS;
+    console.error("[finalize] visual press detection error:", e.message);
+    return null;
   }
+}
+
+// Reconcile the precise audio signal with the coarse visual estimate.
+function resolvePress(onsets, visual) {
+  if (visual != null) {
+    const near = onsets.find(o => Math.abs(o - visual) <= GEMINI_TOLERANCE);
+    if (near != null) return { pressSeconds: near, source: "audio+visual" };
+    return { pressSeconds: visual, source: "visual" };
+  }
+  if (onsets.length) return { pressSeconds: onsets[0], source: "audio" };
+  return { pressSeconds: DEFAULT_PRESS_SECONDS, source: "default" };
+}
+
+// Locate the bundled click.mp3, synthesizing one at runtime if it isn't shipped
+// alongside the function (keeps the click infallible regardless of bundling).
+async function resolveClickPath() {
+  for (const p of [join(process.cwd(), "public/click.mp3"), join(process.cwd(), "click.mp3")]) {
+    if (existsSync(p)) return p;
+  }
+  console.warn("[finalize] click.mp3 not bundled — synthesizing one");
+  const p = join(tmpdir(), `${randomBytes(4).toString("hex")}-click.mp3`);
+  await run(ffmpegPath, [
+    "-y",
+    "-f", "lavfi", "-i", "anoisesrc=color=white:d=0.05:amplitude=0.9",
+    "-f", "lavfi", "-i", "sine=frequency=170:duration=0.10",
+    "-filter_complex",
+      "[0:a]highpass=f=1800,afade=t=out:st=0:d=0.045,volume=1.2[tick];" +
+      "[1:a]lowpass=f=400,afade=t=out:st=0:d=0.10,volume=0.6[tock];" +
+      "[tick][tock]amix=inputs=2:normalize=0,alimiter=limit=0.95,volume=2.0[out]",
+    "-map", "[out]", "-ac", "1", "-ar", "44100", "-t", "0.13",
+    "-codec:a", "libmp3lame", "-q:a", "4", p,
+  ]);
+  return p;
 }
 
 // Generate the voiceover MP3 from the persona's fixed ElevenLabs voice ID.
 async function generateVoice(voiceId, text, apiKey) {
   const r = await fetch(`${ELEVEN_BASE}/${voiceId}`, {
     method: "POST",
-    headers: {
-      "xi-api-key": apiKey,
-      "Content-Type": "application/json",
-      "Accept": "audio/mpeg",
-    },
+    headers: { "xi-api-key": apiKey, "Content-Type": "application/json", "Accept": "audio/mpeg" },
     body: JSON.stringify({
       text,
       model_id: ELEVEN_MODEL,
@@ -129,41 +216,55 @@ export default async function handler(req, res) {
     const videoBuffer = Buffer.from(await vresp.arrayBuffer());
     await writeFile(inPath, videoBuffer);
 
-    // 2 & 3. Detect press moment and generate the voice — in parallel.
-    const [pressSeconds, voiceBuffer] = await Promise.all([
-      detectPressSeconds(videoBuffer.toString("base64"), googleKey),
+    // 2. In parallel: generate the voice, get the coarse visual press estimate,
+    //    detect precise audio onsets, and resolve the click asset.
+    const [voiceBuffer, visual, { onsets, duration }, clickPath] = await Promise.all([
       generateVoice(voiceId, compliment, elevenKey),
+      detectPressVisual(videoBuffer.toString("base64"), googleKey),
+      detectAudioOnsets(inPath),
+      resolveClickPath(),
     ]);
     await writeFile(voicePath, voiceBuffer);
 
-    const delayMs = Math.round((pressSeconds + VOICE_GAP_SECONDS) * 1000);
-    console.log(`[finalize] voice "${voice}" at ${pressSeconds}s (+${VOICE_GAP_SECONDS}s) = ${delayMs}ms`);
+    // 3. Resolve the press moment from the two signals.
+    const videoLen = duration || (await mediaDuration(inPath)) || 8;
+    let { pressSeconds, source } = resolvePress(onsets, visual);
+    pressSeconds = Math.min(Math.max(pressSeconds, ONSET_MIN_SECONDS), videoLen - 0.1);
+    console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} ` +
+      `(onsets=[${onsets.map(o => o.toFixed(2)).join(",")}], visual=${visual})`);
 
-    // 4. Bake the voice into the clip, keeping the original click audio.
-    //    Primary: mix Veo's click audio with the delayed voice.
-    //    Fallback: if the clip has no audio track, lay the voice over silence.
-    const mixArgs = [
-      "-y", "-i", inPath, "-i", voicePath,
-      "-filter_complex", `[1:a]adelay=${delayMs}|${delayMs}[vo];[0:a][vo]amix=inputs=2:normalize=0:duration=longest[a]`,
-      "-map", "0:v:0", "-map", "[a]",
-      "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart",
+    // 4. Compute timing and the freeze-extend needed so the voice is never cut.
+    const voiceLen = (await mediaDuration(voicePath)) || 4;
+    const clickMs = Math.round(pressSeconds * 1000);
+    const voiceStart = pressSeconds + VOICE_GAP_SECONDS;
+    const voiceMs = Math.round(voiceStart * 1000);
+    const target = Math.max(videoLen, voiceStart + voiceLen + TAIL_SECONDS);
+    const extend = Math.max(0, target - videoLen);
+    console.log(`[finalize] click@${clickMs}ms voice@${voiceMs}ms videoLen=${videoLen.toFixed(2)} ` +
+      `voiceLen=${voiceLen.toFixed(2)} target=${target.toFixed(2)} extend=${extend.toFixed(2)}`);
+
+    // 5. Build the final video: freeze-extend the last frame, then bake the audio
+    //    track from scratch — click at the press, voice just after. Veo's own
+    //    audio is mapped from nothing (discarded entirely).
+    const filter =
+      `[0:v]tpad=stop_mode=clone:stop_duration=${extend.toFixed(3)},setsar=1[v];` +
+      `[1:a]adelay=${clickMs}|${clickMs}[click];` +
+      `[2:a]adelay=${voiceMs}|${voiceMs}[vo];` +
+      `[click][vo]amix=inputs=2:normalize=0:duration=longest[a]`;
+    await run(ffmpegPath, [
+      "-y",
+      "-i", inPath,         // 0: video (audio ignored)
+      "-i", clickPath,      // 1: click.mp3
+      "-i", voicePath,      // 2: ElevenLabs voice
+      "-filter_complex", filter,
+      "-map", "[v]", "-map", "[a]",
+      "-t", target.toFixed(3),
+      "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+      "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
       outPath,
-    ];
-    try {
-      await run(ffmpegPath, mixArgs);
-    } catch (mixErr) {
-      console.warn("[finalize] amix failed (likely no source audio), laying voice over silence:", mixErr.message);
-      const soloArgs = [
-        "-y", "-i", inPath, "-i", voicePath,
-        "-filter_complex", `[1:a]adelay=${delayMs}|${delayMs}[a]`,
-        "-map", "0:v:0", "-map", "[a]",
-        "-c:v", "copy", "-c:a", "aac", "-movflags", "+faststart", "-shortest",
-        outPath,
-      ];
-      await run(ffmpegPath, soloArgs);
-    }
+    ]);
 
-    // 5. Store the final audio-baked MP4.
+    // 6. Store the final audio-baked MP4.
     const finalBuffer = await readFile(outPath);
     const { url } = await put(`cats/${id}-final.mp4`, finalBuffer, {
       access: "public",
@@ -171,14 +272,11 @@ export default async function handler(req, res) {
     });
     console.log("[finalize] stored final to blob:", url);
 
-    return res.status(200).json({ url, pressSeconds });
+    return res.status(200).json({ url, pressSeconds, pressSource: source });
   } catch (err) {
     console.error("[finalize] error:", err.message, err.stack);
     return res.status(500).json({ error: err.message });
   } finally {
-    // Best-effort temp cleanup.
-    for (const p of [inPath, voicePath, outPath]) {
-      unlink(p).catch(() => {});
-    }
+    for (const p of [inPath, voicePath, outPath]) unlink(p).catch(() => {});
   }
 }
