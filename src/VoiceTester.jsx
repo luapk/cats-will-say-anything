@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from "react";
 
 const ASSIGNED = {
   "Barry White Core": "hILdTfuUq4LRBMrxHERr",
-  "French Smooth Talker": "FL0d5832ACnJkBaedeKX",
-  "Early 2000s Sean Connery": "KJEm37Eur9OPxG4df2Cu",
+  "French Smooth Talker": "I1T6PEfqPxl45yKRN4aS",
+  "Early 2000s Sean Connery": "csXxiUN2BUFflsCaDxPM",
 };
 
 const SAMPLES = {
