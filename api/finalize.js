@@ -23,7 +23,8 @@ import { execFile } from "child_process";
 import { writeFile, readFile, unlink } from "fs/promises";
 import { existsSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import ffmpegPath from "ffmpeg-static";
 
 export const config = {
@@ -43,15 +44,23 @@ const VOICE_IDS = {
   "Early 2000s Sean Connery": "KJEm37Eur9OPxG4df2Cu",
 };
 
-// Press-detection tuning.
-const DEFAULT_PRESS_SECONDS = 1.4;  // blind fallback (Veo presses within first ~2s)
+// Press-detection tuning. Gemini's visual estimate is the TRUSTED anchor (it
+// understands what a button-press is); per-frame motion is used only to refine
+// that estimate to the exact contact frame when it closely agrees — it never
+// overrides Gemini, because on cinematic footage (camera moves, crash zoom) the
+// raw motion peak is unreliable.
+const DEFAULT_PRESS_SECONDS = 1.1;  // blind fallback (prompt makes the cat press ~1s in)
 const PRESS_MIN_SECONDS = 0.2;      // ignore the very start (encode warm-up)
 const PRESS_MAX_SECONDS = 4.5;      // ignore late motion (e.g. the crash-zoom)
-const GEMINI_WINDOW = 0.7;          // snap to the motion peak within ± this of Gemini's guess
+const GEMINI_WINDOW = 0.3;          // refine to a motion peak only within ± this of Gemini
 const MOTION_MIN_ENERGY = 0.8;      // a peak below this means "no real motion found"
 
-// Audio layout (relative to the detected press).
-const VOICE_GAP_SECONDS = 0.45;     // click rings out, then the voice begins
+// Audio layout. The real click.mp3 is ~0.55s long with ~0.05s of lead-in silence;
+// CLICK_LEAD_TRIM drops that silence so the click's transient lands ON the press,
+// and VOICE_GAP_SECONDS (> the click's length) keeps the voice strictly AFTER it.
+const CLICK_LEAD_TRIM = 0.05;       // leading silence trimmed off the click file
+const CLICK_VOLUME = 2.0;           // boost — the source click is quiet (~ -33 dB mean)
+const VOICE_GAP_SECONDS = 0.65;     // press → voice; the click fully finishes first
 const TAIL_SECONDS = 0.6;           // breathing room held after the voice ends
 
 // execFile that rejects on a non-zero exit.
@@ -152,27 +161,29 @@ async function detectPressVisual(videoBase64, key) {
   }
 }
 
-// Reconcile the precise motion signal with the coarse visual estimate.
+// Gemini is the trusted anchor. Refine to a nearby motion peak only when it
+// closely agrees (snaps to the exact contact frame); never let motion override.
 function resolvePress(samples, visual) {
-  if (visual != null) {
-    // Snap to the motion peak near Gemini's guess (precise), else trust Gemini.
-    const peak = motionPeak(samples, visual - GEMINI_WINDOW, visual + GEMINI_WINDOW);
-    if (peak != null) return { pressSeconds: peak, source: "motion+visual" };
-    return { pressSeconds: visual, source: "visual" };
-  }
-  // No visual estimate: take the dominant motion in the plausible press window.
-  const peak = motionPeak(samples, PRESS_MIN_SECONDS, PRESS_MAX_SECONDS);
-  if (peak != null) return { pressSeconds: peak, source: "motion" };
-  return { pressSeconds: DEFAULT_PRESS_SECONDS, source: "default" };
+  if (visual == null) return { pressSeconds: DEFAULT_PRESS_SECONDS, source: "default" };
+  const peak = motionPeak(samples, visual - GEMINI_WINDOW, visual + GEMINI_WINDOW);
+  if (peak != null) return { pressSeconds: peak, source: "visual+motion" };
+  return { pressSeconds: visual, source: "visual" };
 }
 
-// Locate the bundled click.mp3, synthesizing one at runtime if it isn't shipped
-// alongside the function (keeps the click infallible regardless of bundling).
+// Locate the real bundled click.mp3. Only if it genuinely isn't shipped with the
+// function do we fall back to synthesizing one (emergency net — not preferred).
 async function resolveClickPath() {
-  for (const p of [join(process.cwd(), "public/click.mp3"), join(process.cwd(), "click.mp3")]) {
-    if (existsSync(p)) return p;
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(process.cwd(), "public/click.mp3"),
+    join(process.cwd(), "click.mp3"),
+    join(here, "../public/click.mp3"),
+    join(here, "public/click.mp3"),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) { console.log("[finalize] using bundled click.mp3:", p); return p; }
   }
-  console.warn("[finalize] click.mp3 not bundled — synthesizing one");
+  console.warn("[finalize] click.mp3 NOT bundled — synthesizing a fallback:", candidates);
   const p = join(tmpdir(), `${randomBytes(4).toString("hex")}-click.mp3`);
   await run(ffmpegPath, [
     "-y",
@@ -263,11 +274,15 @@ export default async function handler(req, res) {
     // 5. Build the final video: freeze-extend the last frame, then bake the audio
     //    track from scratch — click at the press, voice just after. Veo's own
     //    audio is mapped from nothing (discarded entirely).
+    // Click: trim its lead-in silence so the transient lands ON the press, boost
+    // it (the source is quiet), force stereo, then delay to the press moment.
+    // Voice: force stereo and delay to press + gap so it starts AFTER the click.
     const filter =
       `[0:v]tpad=stop_mode=clone:stop_duration=${extend.toFixed(3)},setsar=1[v];` +
-      `[1:a]adelay=${clickMs}|${clickMs}[click];` +
-      `[2:a]adelay=${voiceMs}|${voiceMs}[vo];` +
-      `[click][vo]amix=inputs=2:normalize=0:duration=longest[a]`;
+      `[1:a]atrim=start=${CLICK_LEAD_TRIM},asetpts=PTS-STARTPTS,volume=${CLICK_VOLUME},` +
+        `aformat=channel_layouts=stereo,adelay=${clickMs}|${clickMs}[click];` +
+      `[2:a]aformat=channel_layouts=stereo,adelay=${voiceMs}|${voiceMs}[vo];` +
+      `[click][vo]amix=inputs=2:normalize=0:duration=longest,alimiter=limit=0.97[a]`;
     await run(ffmpegPath, [
       "-y",
       "-i", inPath,         // 0: video (audio ignored)

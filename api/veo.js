@@ -52,7 +52,8 @@ function buildPrompt(voiceStyle, compliment, elevenLabs) {
       // finalize.js discards Veo's audio entirely anyway — it bakes the click and
       // the voice from scratch, synced to the press detected from visual motion.
       // So this section describes the ACTION only, never sound.
-      `ACTION — CRITICAL: Quickly, within the first 2 seconds, the cat reaches out with one paw and firmly presses the yellow button straight down and inward a short distance, then releases. ` +
+      `ACTION — CRITICAL: In one single, clear, deliberate motion — completing at roughly 1 second in — the cat reaches out with one paw and firmly presses the yellow button straight down and inward a short distance, then releases. ` +
+      `It is ONE distinct press, not repeated taps or pawing. ` +
       `The button depresses under the paw and settles back flush into the orange base — it never pops up, springs up, or extrudes outward. ` +
       `The cat's mouth stays completely shut the entire time — it never opens its mouth, never meows, never speaks or vocalises. ` +
       `\n\n` +
