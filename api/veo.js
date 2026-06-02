@@ -159,6 +159,16 @@ export default async function handler(req, res) {
       const { url } = await put(`cats/${id}.mp4`, videoBuffer, {
         access: "public",
         contentType: "video/mp4",
+      }).catch(async (e) => {
+        // Blob store may be configured as private — fall back gracefully
+        if (e.message?.includes("private")) {
+          console.log("[veo GET] public blob failed, retrying as private");
+          return put(`cats/${id}.mp4`, videoBuffer, {
+            access: "private",
+            contentType: "video/mp4",
+          });
+        }
+        throw e;
       });
 
       console.log("[veo GET] stored to blob:", url);
