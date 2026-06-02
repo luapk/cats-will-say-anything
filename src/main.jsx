@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import CatsWillSayAnything from "./CatsWillSayAnything.jsx";
 import BgRemovalComparison from "./BgRemovalComparison.jsx";
 import SharePage from "./SharePage.jsx";
+import VoiceTester from "./VoiceTester.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -12,6 +13,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/" element={<CatsWillSayAnything />} />
         <Route path="/share" element={<SharePage />} />
         <Route path="/dev/bg-test" element={<BgRemovalComparison />} />
+        <Route path="/dev/voices" element={<VoiceTester />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>
