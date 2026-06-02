@@ -10,9 +10,6 @@ const VOICES = {
     compliments: [
       "You smell... incredible. Did you roll in something dead? Be honest with me.",
       "I blinked at you. Slow. In my world, baby... that was a proposal.",
-      "Let me put my scent all over you. So the others know you're taken.",
-      "I left something by your pillow. It used to fly. Now it's yours.",
-      "You snore. Loud. Like a tiny, broken purr. And I've decided... I'm into it.",
     ]
   },
   "French Smooth Talker": {
@@ -36,7 +33,6 @@ const VOICES = {
     compliments: [
       "I have hunted many things. Birds. Moths. One unfortunate sock. None of them looked at me the way you do.",
       "You stare at the glowing box for hours. Unblinking. Patient. You would have made a passable cat.",
-      "This morning I pushed your glass from the table. That was no accident. That was devotion. Clean it up.",
       "You cannot climb. You cannot pounce. You sleep eleven hours, not sixteen. And yet. I have grown fond of you.",
       "I brought you a bird once. You screamed. We do not speak of it. But the gesture stands.",
     ]
