@@ -48,6 +48,7 @@ function buildPrompt(voiceStyle, compliment) {
     `Deeply grumpy. Unblinking. Utterly unbothered. Contempt at rest. ` +
     `\n\n` +
     `DO NOT play any voice, speech, or dialogue before Step 2. The audio track must be silent for Step 1. ` +
+    `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
 }
@@ -83,12 +84,7 @@ export default async function handler(req, res) {
         prompt: buildPrompt(voiceStyle, compliment),
         image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
       }],
-      parameters: {
-        aspectRatio: "9:16",
-        durationSeconds: 8,
-        sampleCount: 1,
-        negativePrompt: "human, person, people, man, woman, child, human hands, human arms, human legs, human body, human face, human figure, owner, any human appearing in frame",
-      },
+      parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
     };
 
     let r, data;
@@ -146,10 +142,10 @@ export default async function handler(req, res) {
       if (!data.done) return res.status(200).json({ status: "pending" });
 
       // Done — extract and store video
-      console.log("[veo GET] operation done, extracting video...");
+      console.log("[veo GET] operation done, full response:", JSON.stringify(data));
       const video = extractVideoUrl(data.response || data);
       if (!video) {
-        console.error("[veo GET] could not find video in response:", JSON.stringify(data).slice(0, 500));
+        console.error("[veo GET] could not find video — keys present:", Object.keys(data.response || data));
         return res.status(500).json({ status: "failed", error: "Video not found in response — see Vercel logs" });
       }
 
