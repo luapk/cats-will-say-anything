@@ -83,14 +83,14 @@ export default function SharePage() {
           font-weight: 900;
         }
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0A0A0A; }
+        body { background: #FFD600; }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(16px); }
           to { opacity: 1; transform: translateY(0); }
         }
         .sp-wrap {
           min-height: 100vh;
-          background: #0A0A0A;
+          background: #FFD600;
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -108,6 +108,8 @@ export default function SharePage() {
           width: 100%;
           max-width: 420px;
           background: #111;
+          border-radius: 16px;
+          overflow: hidden;
         }
         .sp-video {
           width: 100%;
@@ -124,21 +126,22 @@ export default function SharePage() {
         .sp-voice-label {
           font-size: 10px;
           font-weight: 900;
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
           letter-spacing: 3px;
           text-transform: uppercase;
-          color: #FFD600;
+          color: #0A0A0A;
           margin-bottom: 8px;
         }
         .sp-compliment-text {
-          font-size: 18px;
+          font-size: 17px;
           font-weight: 800;
-          color: #ffffff;
+          color: #0A0A0A;
           font-style: italic;
-          line-height: 1.5;
+          line-height: 1.55;
         }
         .sp-divider {
           width: 40px; height: 2px;
-          background: #333; border-radius: 2px;
+          background: rgba(0,0,0,0.15); border-radius: 2px;
           margin-top: 16px;
         }
         .sp-share-icons {
@@ -158,27 +161,26 @@ export default function SharePage() {
           background: none;
           border: none;
           cursor: pointer;
-          color: #fff;
+          color: #0A0A0A;
           padding: 0;
         }
         .sp-icon-circle {
           width: 54px; height: 54px;
           border-radius: 50%;
-          background: #1A1A1A;
-          border: 1px solid #2A2A2A;
+          background: #ffffff;
+          border: 2px solid #0A0A0A;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: background 0.2s, border-color 0.2s;
+          transition: background 0.2s;
         }
         .sp-icon-btn:hover .sp-icon-circle {
-          background: #252525;
-          border-color: #444;
+          background: #FFED00;
         }
         .sp-icon-label {
           font-size: 10px;
           font-weight: 700;
-          color: #888;
+          color: #6B4F00;
           letter-spacing: 0.3px;
           white-space: nowrap;
         }
@@ -192,8 +194,8 @@ export default function SharePage() {
           display: block;
           width: 100%;
           text-align: center;
-          background: #FFD600;
-          color: #0A0A0A;
+          background: #0A0A0A;
+          color: #FFD600;
           border: none;
           border-radius: 100px;
           padding: 16px 32px;
@@ -206,7 +208,7 @@ export default function SharePage() {
           letter-spacing: 0.5px;
           transition: all 0.2s;
         }
-        .btn-buy:hover { background: #FFE933; transform: translateY(-2px); }
+        .btn-buy:hover { background: #222; transform: translateY(-2px); }
       `}</style>
 
       <div className="sp-wrap">
@@ -214,7 +216,7 @@ export default function SharePage() {
           <img
             src="/logo.png"
             alt="Temptations"
-            style={{ height: 56, objectFit: "contain" }}
+            style={{ height: 120, objectFit: "contain" }}
             onError={(e) => { e.target.style.display = "none"; }}
           />
         </div>
