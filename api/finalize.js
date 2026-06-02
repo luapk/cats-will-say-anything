@@ -14,7 +14,7 @@
 import { put } from "@vercel/blob";
 import { randomBytes } from "crypto";
 import { execFile } from "child_process";
-import { writeFile, readFile, unlink } from "fs/promises";
+import { writeFile, readFile, unlink, mkdir, rm } from "fs/promises";
 import { existsSync } from "fs";
 import { tmpdir } from "os";
 import { join, dirname } from "path";
@@ -92,36 +92,80 @@ async function mediaDuration(path) {
   return parseDuration(stderr);
 }
 
-// Ask Gemini to watch the generated video and identify the frame where the paw
-// makes contact with the button. Returns seconds as a float, or null on failure.
-async function detectPressVisual(videoBase64, key) {
+// Frame-extraction window: vision LLMs are good at picking a frame from a
+// labelled set but bad at inventing a precise timestamp. So we extract evenly
+// spaced frames across the window the press can occur in, stamp each with its
+// time, and ask Gemini to pick the first frame where the paw is pressing.
+const FRAME_FPS = 8;            // frames per second to sample (0.125s resolution)
+const FRAME_WINDOW = 4.0;       // sample only the first N seconds (press is early)
+
+// Extract evenly spaced JPEG frames from the start of the clip. Returns
+// [{ t, base64 }] ordered by time. The frame index i (1-based) maps to
+// timestamp (i-1)/FRAME_FPS.
+async function extractFrames(inPath, dir) {
+  await run(ffmpegPath, [
+    "-y", "-i", inPath,
+    "-vf", `fps=${FRAME_FPS},scale=384:-1`,
+    "-t", String(FRAME_WINDOW),
+    "-q:v", "5",
+    join(dir, "f_%03d.jpg"),
+  ]);
+  const frames = [];
+  for (let i = 1; i <= Math.ceil(FRAME_WINDOW * FRAME_FPS) + 2; i++) {
+    const p = join(dir, `f_${String(i).padStart(3, "0")}.jpg`);
+    if (!existsSync(p)) break;
+    const buf = await readFile(p);
+    frames.push({ t: (i - 1) / FRAME_FPS, base64: buf.toString("base64") });
+  }
+  return frames;
+}
+
+// Ask Gemini to pick the first frame where the paw is fully pressing the button.
+// Returns seconds as a float, or null on failure.
+async function detectPressVisual(inPath, key) {
+  const dir = join(tmpdir(), `${randomBytes(4).toString("hex")}-frames`);
   try {
+    await mkdir(dir, { recursive: true });
+    const frames = await extractFrames(inPath, dir);
+    if (frames.length === 0) return null;
+
+    const parts = [{
+      text:
+        `Below are ${frames.length} sequential frames from a short video of a cat pressing a button with its paw. ` +
+        `Each frame is preceded by its index. Find the FIRST frame in which the cat's paw is resting ON the button and pressing it down ` +
+        `(paw in direct contact with the top of the button — not still reaching toward it, not already lifted away). ` +
+        `Respond ONLY as JSON, no markdown: {"frameIndex": N} where N is that frame's index. ` +
+        `If the paw never clearly presses the button in these frames, respond {"frameIndex": null}.`
+    }];
+    frames.forEach((f, i) => {
+      parts.push({ text: `Frame ${i}:` });
+      parts.push({ inlineData: { mimeType: "image/jpeg", data: f.base64 } });
+    });
+
     const r = await fetch(`${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inlineData: { mimeType: "video/mp4", data: videoBase64 } },
-            { text:
-              `This is a short video of a cat pressing a yellow button with its paw. ` +
-              `Identify the exact moment the paw makes full contact and presses the button down (the click). ` +
-              `Respond ONLY as JSON, no markdown: {"pressSeconds": N} where N is that time in seconds as a decimal.` }
-          ]
-        }],
+        contents: [{ parts }],
         generationConfig: { temperature: 0, maxOutputTokens: 64, thinkingConfig: { thinkingBudget: 0 } },
       }),
     });
     const data = await r.json();
-    if (!r.ok) { console.error("[finalize] gemini detect failed:", JSON.stringify(data)); return null; }
+    if (!r.ok) { console.error("[finalize] gemini frame-pick failed:", JSON.stringify(data)); return null; }
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-    const t = Number(parsed.pressSeconds);
-    if (!Number.isFinite(t) || t < 0 || t > 7.5) return null;
-    return t;
+    const idx = parsed.frameIndex;
+    if (idx == null || !Number.isInteger(idx) || idx < 0 || idx >= frames.length) {
+      console.log(`[finalize] gemini returned no usable frame index:`, text.trim());
+      return null;
+    }
+    console.log(`[finalize] gemini picked frame ${idx} → ${frames[idx].t.toFixed(3)}s`);
+    return frames[idx].t;
   } catch (e) {
     console.error("[finalize] visual press detection error:", e.message);
     return null;
+  } finally {
+    rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
 
@@ -209,7 +253,7 @@ export default async function handler(req, res) {
     //    get video duration, and resolve the click asset.
     const [voiceBuffer, visual, videoLen, clickPath] = await Promise.all([
       generateVoice(voiceId, compliment, elevenKey),
-      detectPressVisual(videoBuffer.toString("base64"), googleKey),
+      detectPressVisual(inPath, googleKey),
       mediaDuration(inPath).then(d => d || 8),
       resolveClickPath(),
     ]);
