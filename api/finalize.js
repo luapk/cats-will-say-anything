@@ -37,12 +37,23 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 const ELEVEN_BASE = "https://api.elevenlabs.io/v1/text-to-speech";
 const ELEVEN_MODEL = "eleven_multilingual_v2";
 
-// Persona display name → ElevenLabs voice ID.
+// Persona display name → ElevenLabs voice ID. Kept in sync with the /dev/voices
+// tester and api/tts-preview.js — change these together so previews match prod.
 const VOICE_IDS = {
   "Barry White Core": "hILdTfuUq4LRBMrxHERr",
-  "French Smooth Talker": "FL0d5832ACnJkBaedeKX",
-  "Early 2000s Sean Connery": "KJEm37Eur9OPxG4df2Cu",
+  "French Smooth Talker": "I1T6PEfqPxl45yKRN4aS",
+  "Early 2000s Sean Connery": "csXxiUN2BUFflsCaDxPM",
 };
+
+// Per-voice ElevenLabs settings, keyed by voice ID. MUST mirror tts-preview.js
+// exactly so the /dev/voices tester reflects production: French gets a style
+// boost to pull the accent; Connery is style-boosted and slowed (speed 0.82).
+const VOICE_SETTINGS = {
+  "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+  "I1T6PEfqPxl45yKRN4aS": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },
+  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true, speed: 0.82 },
+};
+const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
 
 // Press-detection tuning. Gemini's visual estimate is the TRUSTED anchor (it
 // understands what a button-press is); per-frame motion is used only to refine
@@ -207,7 +218,7 @@ async function generateVoice(voiceId, text, apiKey) {
     body: JSON.stringify({
       text,
       model_id: ELEVEN_MODEL,
-      voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+      voice_settings: VOICE_SETTINGS[voiceId] || DEFAULT_VOICE_SETTINGS,
     }),
   });
   if (!r.ok) {
