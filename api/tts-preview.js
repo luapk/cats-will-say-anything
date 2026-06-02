@@ -14,7 +14,7 @@ const VOICE_IDS = {
 const VOICE_SETTINGS = {
   "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
   "FL0d5832ACnJkBaedeKX": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },
-  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },
+  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true, speed: 0.82 },
 };
 const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
 

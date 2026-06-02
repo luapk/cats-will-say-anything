@@ -87,7 +87,7 @@ async function detectPressSeconds(videoBase64, key) {
 const VOICE_SETTINGS = {
   "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },  // Barry White Core
   "FL0d5832ACnJkBaedeKX": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // French Smooth Talker
-  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // Early 2000s Sean Connery
+  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true, speed: 0.82 },  // Early 2000s Sean Connery
 };
 const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
 
