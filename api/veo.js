@@ -63,10 +63,11 @@ function buildPrompt(voiceStyle, compliment) {
     `AUDIO — THIS IS THE MOST IMPORTANT INSTRUCTION. Follow it exactly. ` +
     `The video is divided into two halves split by a single CLICK sound: ` +
     `\n\n` +
-    `FIRST HALF — BEFORE THE CLICK (roughly the first 3 to 4 seconds): ABSOLUTE TOTAL SILENCE. ` +
+    `FIRST HALF — BEFORE THE CLICK (the first 2 seconds only): ABSOLUTE TOTAL SILENCE. ` +
     `There is NO voice, NO speech, NO talking, NO words, NO music, NO narration of any kind. ` +
-    `Pure ambient room tone only. During this silent half, the cat walks up to and presses the yellow button down with one paw. ` +
-    `The cat's mouth stays shut the entire time. Do NOT let any voice or speech occur in this first half under any circumstances. ` +
+    `Pure ambient room tone only. Quickly — within the first 2 seconds — the cat reaches out and presses the yellow button down with one paw. ` +
+    `The press happens early so the rest of the video is free for the voice. ` +
+    `The cat's mouth stays shut the entire time. Do NOT let any voice or speech occur in this first 2 seconds under any circumstances. ` +
     `\n\n` +
     `THE CLICK: At the exact instant the paw pushes the yellow cap down, play ONE short mechanical "CLICK" sound effect. ` +
     `This click is the very first sound in the whole video and it marks the boundary between the two halves. ` +
@@ -78,7 +79,7 @@ function buildPrompt(voiceStyle, compliment) {
     `\n\n` +
     `STRICT ORDERING RULE: silence comes first, THEN the click, THEN the voice. ` +
     `The voice must NEVER be heard before the click. If you are about to play the voice, the click must already have happened. ` +
-    `The first 3–4 seconds contain no voice whatsoever. This ordering is non-negotiable. ` +
+    `The cat presses the button within the first 2 seconds, and only after that click does any voice begin. This ordering is non-negotiable. ` +
     `\n\n` +
     `WHILE THE VOICE PLAYS: the cat turns its head and stares directly into the camera — deeply grumpy, unblinking, utterly unbothered. ` +
     `\n\n` +
