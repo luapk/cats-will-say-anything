@@ -36,16 +36,17 @@ function buildPrompt(voiceStyle, compliment) {
     `\n\n` +
     `STRICT TIMING — follow this sequence exactly, in this order, no exceptions: ` +
     `\n` +
-    `STEP 1 — VISUAL ONLY, NO AUDIO: The video opens in silence. The cat is already in front of the button. ` +
-    `It presses the yellow cap firmly with one paw. The first sound in the entire video is the physical click of the button. ` +
+    `STEP 1 — SILENT: The video opens in complete silence. The cat is already positioned in front of the button. ` +
+    `It presses the yellow cap firmly with one paw. Minimum effort. The cat's mouth does not open. The cat does not speak. ` +
     `There is NO voice before this moment. Zero. Silence until the paw makes contact. ` +
     `\n` +
-    `STEP 2 — VOICE STARTS ON THE PRESS: The very instant the paw touches the button — not before, exactly then — ` +
-    `a voice-over in the style of ${voiceStyle} begins speaking: "${compliment}" ` +
-    `The voice is triggered by the button press. The button is the trigger. ` +
+    `STEP 2 — BUTTON SPEAKS: The very instant the paw touches the button, the BUTTON itself emits a voice — ` +
+    `as if it contains a built-in speaker — in the style of ${voiceStyle}, saying: "${compliment}". ` +
+    `The cat is NOT speaking. The cat's mouth stays closed. The BUTTON is the source of the sound. ` +
+    `Think of it like a talking toy or a novelty sound button — the voice comes out of the button, not the cat. ` +
     `\n` +
-    `STEP 3 — GRUMPY STARE: While the voice-over plays, the cat turns its head and stares directly into the camera. ` +
-    `Deeply grumpy. Unblinking. Utterly unbothered. Contempt at rest. ` +
+    `STEP 3 — GRUMPY STARE: While the button plays its message, the cat turns its head and stares directly into the camera. ` +
+    `Deeply grumpy. Unblinking. Utterly unbothered. Contempt at rest. The cat remains silent throughout. ` +
     `\n\n` +
     `DO NOT play any voice, speech, or dialogue before Step 2. The audio track must be silent for Step 1. ` +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
