@@ -322,9 +322,16 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
     } catch (err) {
       const raw = err?.message || String(err);
-      const friendly = raw.toLowerCase().includes("high demand") || raw.toLowerCase().includes("try again")
-        ? "The film studio is very busy right now. Wait a moment and try again."
-        : raw;
+      const low = raw.toLowerCase();
+      let friendly;
+      if (low.includes("quota") || low.includes("resource_exhausted") || low.includes("429")) {
+        // Hard quota cap — waiting won't help until it resets / billing is raised.
+        friendly = `Video generation quota reached on the Google API key. This won't clear by retrying — the daily Veo quota is used up (or billing needs raising).\n\nDetail: ${raw}`;
+      } else if (low.includes("overloaded") || low.includes("unavailable") || low.includes("503") || low.includes("high demand") || low.includes("try again")) {
+        friendly = `The film studio is very busy right now (Veo is temporarily overloaded). Wait a moment and try again.\n\nDetail: ${raw}`;
+      } else {
+        friendly = raw;
+      }
       setGeneratingError(friendly);
       setScreen("error");
     }
