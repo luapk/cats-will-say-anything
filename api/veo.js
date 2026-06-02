@@ -22,26 +22,25 @@ function extractErrorMessage(data) {
 // Continuity-bible description of the Temptations button. Kept verbatim across
 // every generation so the prop renders identically film to film.
 const BUTTON_BIBLE = JSON.stringify({
-  object: "Temptations push-button (two-piece actuator + base)",
+  object: "Temptations push-button",
   overall:
-    "A stylized, glossy, 3D-rendered push-button assembly. Two pieces: a vibrant yellow central actuator seated inside a bulbous orange base. Reads as a chunky, oversized novelty 'easy button'.",
-  actuator_top_button: {
-    shape: "Flat-topped cylinder with gently rounded upper edges; sits flush and seated down inside the orange base — its top is roughly level with the rim of the housing. It does NOT protrude, stick up, or extrude above the base.",
-    color: "Solid bright yellow, smooth semi-gloss plastic finish with a subtle soft highlight running along the rounded top edge.",
+    "Chunky glossy novelty push-button. Two pieces: a bright yellow cylindrical actuator seated flush inside a bulbous red base.",
+  actuator: {
+    shape: "Flat-topped cylinder, gently rounded upper edges; top flush with the rim of the base — never protruding above it.",
+    color: "Solid bright yellow, semi-gloss plastic.",
     logo: {
       text: "Temptations",
-      typeface: "Black stylized italic cursive script",
-      badge: "Text sits entirely inside a solid white scalloped cloud-like shape, bordered by a thin yellow outline that separates it slightly from the yellow surface.",
-      placement: "Centered flat on the top face of the yellow cap.",
+      typeface: "Black italic cursive script",
+      badge: "Text inside a solid white scalloped cloud badge, centred on the top face.",
     },
-    position: "Seated flush within the orange housing in its resting state — never raised or popped up. When pressed it travels a short distance straight down and inward, then settles back to the same flush resting position. It never springs up or extrudes outward.",
+    press: "Travels straight down a short distance when pressed, returns to flush resting position. Never springs up or extrudes outward.",
   },
-  base_housing: {
-    shape: "Smooth convex flattened-sphere / flared-donut form, widest at its horizontal equator, tapering inward to a flat bottom and curving inward at the top to seamlessly frame the yellow button.",
-    color: "Highly saturated vibrant orange.",
-    finish: "High-gloss plastic. Prominent curved white specular highlight on the mid-to-upper-right quadrant (strong key light from above-right); softer diffuse highlight along the upper-left curve.",
+  base: {
+    shape: "Flattened-sphere / flared-donut form, widest at the equator, flat bottom, curves inward at top to frame the actuator.",
+    color: "Highly saturated vivid red.",
+    finish: "High-gloss plastic, curved white specular highlight on the upper-right quadrant.",
   },
-  scale: "About 90mm wide overall — a chunky disc roughly as wide as the cat's paw is long, a satisfying prop the cat can press flat with one paw.",
+  scale: "~90mm wide — approximately as wide as the cat's paw is long.",
 });
 
 function buildPrompt(voiceStyle, compliment, elevenLabs) {
@@ -52,12 +51,9 @@ function buildPrompt(voiceStyle, compliment, elevenLabs) {
       // finalize.js discards Veo's audio entirely anyway — it bakes the click and
       // the voice from scratch, synced to the press detected from visual motion.
       // So this section describes the ACTION only, never sound.
-      `ACTION — CRITICAL: In one single, clear, deliberate motion — completing at roughly 1 second in — the cat reaches out with one paw and firmly presses the yellow button straight down and inward a short distance, then releases. ` +
-      `It is ONE distinct press, not repeated taps or pawing. ` +
-      `The button depresses under the paw and settles back flush into the orange base — it never pops up, springs up, or extrudes outward. ` +
-      `The cat's mouth stays completely shut the entire time — it never opens its mouth, never meows, never speaks or vocalises. ` +
+      `ACTION — CRITICAL: At roughly 1 second in, the cat reaches out with one paw and presses the yellow cap straight down a short distance, then withdraws the paw. ONE press only — no second tap, no repeated pawing, no returning to the button. The cat's mouth stays completely shut throughout — no meowing, no vocalisation of any kind. ` +
       `\n\n` +
-      `AFTER THE PRESS: the cat turns its head and stares directly into the camera — deeply grumpy, unblinking, utterly unbothered. ` +
+      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera for the remainder of the clip. ` +
       `\n\n`
     )
     : (
@@ -99,7 +95,7 @@ function buildPrompt(voiceStyle, compliment, elevenLabs) {
     `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
     `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video. The button reference image is the authoritative source for its look; this continuity-bible JSON spec describes the same prop: ` +
     `${BUTTON_BIBLE}. ` +
-    `The button sits directly on the yellow floor. Its yellow cap is seated FLUSH in the orange base in its resting state (the reference image shows this resting, depressed-looking state) — the cap never protrudes or sticks up; pressing only pushes it a short way straight down and inward. Its surface is shiny plastic with glossy specular highlights. ` +
+    `The button sits directly on the yellow floor. Its yellow cap is seated FLUSH in the red base in its resting state (the reference image shows this resting, depressed-looking state) — the cap never protrudes or sticks up; pressing only pushes it a short way straight down and inward. Its surface is shiny plastic with glossy specular highlights. ` +
     `\n\n` +
     audioSection +
     `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame with its expression. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. ` +
