@@ -8,14 +8,11 @@ const VOICES = {
     voiceDesc: "deep, velvet, impossibly smooth baritone — every word arrives slightly after you expected it",
     voiceStyle: "a rich, resonant African American male bass-baritone voice — think Barry White or Isaac Hayes — speaking with extraordinary deliberateness. Each word is separated by a long, meaningful pause. The voice is impossibly smooth, almost liquid, with a slight hum of warmth underneath. Every consonant lands softly. Every pause is pregnant. It sounds like the voice knows something you don't, and is deciding whether to share it",
     compliments: [
-      "You... are doing your best. And that is... enough.",
-      "I have seen you. And I have chosen... to remain.",
-      "Your appearance... is not offensive. To me. Tonight.",
-      "You opened the window when I asked. That is... a quality.",
-      "For a human... you are tolerable. In the evenings.",
-      "You have a warmth about you. That I occasionally appreciate... from a distance.",
-      "Your voice is not unpleasant. When you are not talking too much.",
-      "You try. And sometimes... that is visible.",
+      "You smell... incredible. Did you roll in something dead? Be honest with me.",
+      "I blinked at you. Slow. In my world, baby... that was a proposal.",
+      "Let me put my scent all over you. So the others know you're taken.",
+      "I left something by your pillow. It used to fly. Now it's yours.",
+      "You snore. Loud. Like a tiny, broken purr. And I've decided... I'm into it.",
     ]
   },
   "French Smooth Talker": {
@@ -24,15 +21,11 @@ const VOICES = {
     voiceDesc: "silky French accent, existentially resigned, as if complimenting you is a philosophical act they find distasteful but necessary",
     voiceStyle: "a French-accented male voice speaking English — think Jean Reno or the French narrator in a Parisian art film. The accent is genuine: lilting vowels, slightly nasal, Rs rolled gently, H sounds dropped. The tone is world-weary and philosophically resigned, as if this compliment is an existential burden the speaker has agreed to carry, reluctantly, out of a vague sense of duty. There is a faint, dry amusement underneath — the voice of someone who finds everything mildly disappointing but is too elegant to make a fuss about it",
     compliments: [
-      "You are not, how do I say... the worst thing in this apartment.",
-      "Your sense of style is limited. But it is yours. This I respect. A little.",
-      "Other people's owners are also mediocre. You are mediocre in a... familiar way.",
-      "I have seen you cry at the television. I did not leave the room. This is love, non?",
-      "You smell of effort. I find this... not entirely unpleasant.",
-      "In France, we would not keep you. But this is not France. So here we are.",
-      "You have a good heart. It is not your fault you also have that haircut.",
-      "You are improving. Slowly. It is noticeable. Barely.",
-      "You ask so little in return. This is, perhaps, your greatest quality.",
+      "Your hair, it shines. You have been licking it, non? Do not lie. I know the work of a tongue.",
+      "If a face can launch a thousand ships, yours could launch... perhaps nine. Good ships, though.",
+      "You wash yourself. With the water. Like a savage. It is grotesque. And yet, mon amour, I watch.",
+      "You have no tail, no fur, no claws. Frankly, barely an animal. And still I choose you. Strange, non?",
+      "I knocked your cup to the floor this morning. A gift. In France, we call this passion.",
     ]
   },
   "Early 2000s Sean Connery": {
@@ -41,12 +34,11 @@ const VOICES = {
     voiceDesc: "measured Scottish brogue, imperious and deliberate, delivering backhanded praise with the weight of a man who has seen far greater things",
     voiceStyle: "a Scottish male voice modelled on Sean Connery circa 2000 — a rich, gravelly baritone with a strong Edinburgh-Highlands Scottish accent. The Rs are slightly rolled. The vowels are rounded and full. The cadence is unhurried and authoritative, as if each sentence has been considered carefully and delivered from a position of supreme, unearned confidence. There is a mild rasp in the voice. Every word carries the quiet implication that this speaker has done far more impressive things than whatever you have done, and is choosing, generously, not to say so",
     compliments: [
-      "In my experience, most people are disappointing. You are less disappointing than most.",
-      "I have known greater people. I have also known worse. You are somewhere in that range.",
-      "You are not entirely without merit. Take that. Keep it. Use it wisely.",
-      "Your determination is noted. I do not share it. But I note it.",
-      "A lesser person would have given up by now. You have not. That is... something.",
-      "I expect more. I always expect more. But what you gave was... sufficient.",
+      "I have hunted many things. Birds. Moths. One unfortunate sock. None of them looked at me the way you do.",
+      "You stare at the glowing box for hours. Unblinking. Patient. You would have made a passable cat.",
+      "This morning I pushed your glass from the table. That was no accident. That was devotion. Clean it up.",
+      "You cannot climb. You cannot pounce. You sleep eleven hours, not sixteen. And yet. I have grown fond of you.",
+      "I brought you a bird once. You screamed. We do not speak of it. But the gesture stands.",
     ]
   },
 };
