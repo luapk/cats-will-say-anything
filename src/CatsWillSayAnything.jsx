@@ -210,11 +210,15 @@ If the image passed Step 1, check whether the image primarily features a cat. If
 {"error": "not_a_cat"}
 
 STEP 3 — CAT ANALYSIS:
-If the image passed both checks above and primarily features a cat, assign ONE of these three voice archetypes:
+If the image passed both checks above and primarily features a cat, assign ONE of these three voice archetypes based on the cat's dominant VISUAL features. All three are equally valid — choose the best fit, not the safest default. Be decisive.
 
-- Barry White Core (deep African American baritone — for cats with heavy-lidded eyes, a slow blinking quality, or plush velvet-like fur that suggests smooth authority)
-- French Smooth Talker (silky French film star — for cats with a certain je ne sais quoi, an elegant but faintly disappointed bearing, or refined colouring)
-- Early 2000s Sean Connery (Scottish gravitas — for cats with weathered dignity, a no-nonsense stare, or the look of someone who has seen far greater things than you)
+- Barry White Core — assign this to cats with PLUSH, DENSE, or VELVETY fur (Persians, Ragdolls, British Shorthairs, any long-haired or very fluffy cat); OR heavy-lidded, half-closed, or drowsy-looking eyes; OR a large round body with a languid, slow energy. The fur or body shape is the key trigger.
+
+- French Smooth Talker — assign this to cats with a SLEEK, SHORT, FINE coat and an elegant or aristocratic build (Siamese, Burmese, Oriental, Devon Rex, any lean angular cat); OR unusual, refined, or two-tone colouring that reads as fashionable; OR a sharp, pointed face with a faintly superior expression. The coat texture and face shape are the key triggers.
+
+- Early 2000s Sean Connery — assign this to cats with TABBY STRIPES, a rugged or weathered face, a stocky muscular build, or a direct confrontational stare that reads as battle-hardened rather than elegant. This is the voice for tough-looking tabbies and street cats, NOT a generic fallback for any serious-looking cat.
+
+IMPORTANT: Do NOT default to Early 2000s Sean Connery just because a cat looks serious. Serious cats can be any of the three. Base the choice on fur type, coat pattern, and body shape first — those are more reliable signals than expression alone. Aim for variety: if the visual evidence equally supports two choices, pick the one that is more unexpected or funnier.
 
 Write 2-3 funny, specific observational sentences explaining WHY this cat matches that voice. Reference actual visual details — fur colour/texture, eye shape, posture, expression. Be affectionately cutting.
 
