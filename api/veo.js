@@ -132,8 +132,25 @@ export default async function handler(req, res) {
       const id = randomBytes(8).toString("hex");
       let videoBuffer;
       if (video.uri) {
-        const videoResp = await fetch(video.uri);
-        if (!videoResp.ok) throw new Error(`Failed to fetch video from Google: HTTP ${videoResp.status}`);
+        // Convert gs:// URIs to an authenticated HTTPS download URL.
+        // Plain HTTPS URIs get the API key appended for auth.
+        let downloadUrl = video.uri;
+        console.log("[veo GET] raw video URI:", downloadUrl);
+        if (downloadUrl.startsWith("gs://")) {
+          const withoutScheme = downloadUrl.slice(5); // "bucket/path/to/file.mp4"
+          const slashIdx = withoutScheme.indexOf("/");
+          const bucket = withoutScheme.slice(0, slashIdx);
+          const object = encodeURIComponent(withoutScheme.slice(slashIdx + 1));
+          downloadUrl = `https://storage.googleapis.com/download/storage/v1/b/${bucket}/o/${object}?alt=media&key=${key}`;
+        } else if (!downloadUrl.includes("key=")) {
+          downloadUrl += (downloadUrl.includes("?") ? "&" : "?") + `key=${key}`;
+        }
+        console.log("[veo GET] fetching from:", downloadUrl.replace(key, "REDACTED"));
+        const videoResp = await fetch(downloadUrl);
+        if (!videoResp.ok) {
+          const body = await videoResp.text();
+          throw new Error(`Failed to fetch video from Google: HTTP ${videoResp.status} — ${body.slice(0, 200)}`);
+        }
         videoBuffer = Buffer.from(await videoResp.arrayBuffer());
       } else {
         videoBuffer = Buffer.from(video.b64, "base64");
