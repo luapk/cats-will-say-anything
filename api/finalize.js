@@ -42,12 +42,12 @@ const ELEVEN_MODEL = "eleven_multilingual_v2";
 const VOICE_IDS = {
   "Barry White Core": "hILdTfuUq4LRBMrxHERr",
   "French Smooth Talker": "I1T6PEfqPxl45yKRN4aS",
-  "Early 2000s Sean Connery": "csXxiUN2BUFflsCaDxPM",
+  "Highland Heartthrob": "csXxiUN2BUFflsCaDxPM",
 };
 
 // Per-voice ElevenLabs settings, keyed by voice ID. MUST mirror tts-preview.js
 // exactly so the /dev/voices tester reflects production: French gets a style
-// boost to pull the accent; Connery is style-boosted and slowed (speed 0.82).
+// boost to pull the accent; Highland Heartthrob is style-boosted and slowed (speed 0.82).
 const VOICE_SETTINGS = {
   "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
   "I1T6PEfqPxl45yKRN4aS": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },

@@ -28,7 +28,7 @@ const VOICES = {
       "I knocked your cup to the floor this morning. A gift. In France, we call this passion.",
     ]
   },
-  "Early 2000s Sean Connery": {
+  "Highland Heartthrob": {
     emoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
     toneNote: "Measured Scottish gravitas — imperious, deliberate, delivers backhanded praise like a knighthood",
     voiceDesc: "measured Scottish brogue, imperious and deliberate, delivering backhanded praise with the weight of a man who has seen far greater things",
@@ -216,9 +216,9 @@ If the image passed both checks above and primarily features a cat, assign ONE o
 
 - French Smooth Talker — assign this to cats with a SLEEK, SHORT, FINE coat and an elegant or aristocratic build (Siamese, Burmese, Oriental, Devon Rex, any lean angular cat); OR unusual, refined, or two-tone colouring that reads as fashionable; OR a sharp, pointed face with a faintly superior expression. The coat texture and face shape are the key triggers.
 
-- Early 2000s Sean Connery — assign this to cats with TABBY STRIPES, a rugged or weathered face, a stocky muscular build, or a direct confrontational stare that reads as battle-hardened rather than elegant. This is the voice for tough-looking tabbies and street cats, NOT a generic fallback for any serious-looking cat.
+- Highland Heartthrob — assign this to cats with TABBY STRIPES, a rugged or weathered face, a stocky muscular build, or a direct confrontational stare that reads as battle-hardened rather than elegant. This is the voice for tough-looking tabbies and street cats, NOT a generic fallback for any serious-looking cat.
 
-IMPORTANT: Do NOT default to Early 2000s Sean Connery just because a cat looks serious. Serious cats can be any of the three. Base the choice on fur type, coat pattern, and body shape first — those are more reliable signals than expression alone. Aim for variety: if the visual evidence equally supports two choices, pick the one that is more unexpected or funnier.
+IMPORTANT: Do NOT default to Highland Heartthrob just because a cat looks serious. Serious cats can be any of the three. Base the choice on fur type, coat pattern, and body shape first — those are more reliable signals than expression alone. Aim for variety: if the visual evidence equally supports two choices, pick the one that is more unexpected or funnier.
 
 Write 2-3 funny, specific observational sentences explaining WHY this cat matches that voice. Reference actual visual details — fur colour/texture, eye shape, posture, expression. Be affectionately cutting.
 
