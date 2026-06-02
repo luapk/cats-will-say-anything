@@ -785,18 +785,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             )}
 
             {revealStep >= 3 && (
-              <div style={{ width: "100%" }}>
-                <div className="section-label">What your cat will say</div>
-                <div
-                  className={`compliment-item visible`}
-                  style={{ animationDelay: "0s" }}
-                >
-                  <span className="compliment-text">"{selectedCompliment || vd.compliments[0]}"</span>
-                </div>
-              </div>
-            )}
-
-            {revealStep >= 3 && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px", width: "100%", marginTop: "4px", animation: "fadeUp 0.5s 0.4s ease forwards", opacity: 0 }}>
                 <button
                   className="btn-red pulsing"

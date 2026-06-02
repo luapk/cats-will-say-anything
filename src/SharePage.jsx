@@ -276,14 +276,6 @@ export default function SharePage() {
           />
         </div>
 
-        {(compliment || voice) && (
-          <div className="sp-info">
-            {voice && <div className="sp-voice-label">{voice} says:</div>}
-            {compliment && <p className="sp-compliment-text">"{compliment}"</p>}
-            <div className="sp-divider" />
-          </div>
-        )}
-
         <div className="sp-share-icons">
           {SHARE_ITEMS.map(item => (
             <button key={item.name} className="sp-icon-btn" onClick={item.action}>
