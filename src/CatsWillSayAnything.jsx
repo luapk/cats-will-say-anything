@@ -1027,7 +1027,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                 </p>
               )}
             </div>
-            <p className="gen-hint">This takes a few minutes. Don't close the tab.</p>
+            <p className="gen-hint">Creating your film takes a hot minute. Don't close the tab.</p>
           </div>
           );
         })()}

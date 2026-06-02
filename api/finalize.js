@@ -31,7 +31,8 @@ const VOICE_IDS = {
 };
 
 const DEFAULT_PRESS_SECONDS = 2.0; // fallback if detection fails
-const VOICE_GAP_SECONDS = 0.15;    // start voice just after the click
+const VOICE_GAP_SECONDS = 0.5;     // gap between click and VO start
+const TARGET_SECONDS = 12;         // final video duration (Veo=8s + 4s freeze)
 
 function run(bin, args) {
   return new Promise((resolve, reject) => {
@@ -153,12 +154,13 @@ export default async function handler(req, res) {
     const voiceMs = Math.round((pressSeconds + VOICE_GAP_SECONDS) * 1000);
     console.log(`[finalize] voice "${voice}" — click @ ${clickMs}ms, VO @ ${voiceMs}ms`);
 
-    // 4a. Extend the Veo clip to 12 seconds by freeze-holding the last frame.
-    //     Veo caps at 8s, so without this the VO gets cut off mid-sentence.
+    // 4a. Extend the Veo clip to TARGET_SECONDS by freeze-holding the last frame.
+    //     Veo caps at 8s; without this the VO gets cut off mid-sentence.
     //     ultrafast preset keeps re-encode time under ~3s on Vercel.
+    const padSeconds = TARGET_SECONDS - 8;
     await run(ffmpegPath, [
       "-y", "-i", inPath,
-      "-vf", "tpad=stop_duration=4:stop_mode=clone",
+      "-vf", `tpad=stop_duration=${padSeconds}:stop_mode=clone`,
       "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
       "-an",
       extPath,
@@ -167,21 +169,23 @@ export default async function handler(req, res) {
     // 4b. Bake audio from scratch onto the extended clip. We DISCARD Veo's
     //     unreliable generated audio (stray clicks) and build a clean track:
     //     a synthesized button click at the detected press, then the boosted VO
-    //     just after. Both are keyed to the same moment so VO can never precede click.
+    //     0.5s after it. Audio is padded to TARGET_SECONDS so the full video
+    //     plays out — no -shortest flag that would cut it short.
     //
-    //     input 0 = extended video (no audio), 1 = voice mp3,
-    //     2 = synthesized click (short decaying noise burst via lavfi).
+    //     input 0 = extended video, 1 = voice mp3,
+    //     2 = synthesized click (plastic-thud tone + noise burst via lavfi).
     const args = [
       "-y",
       "-i", extPath,
       "-i", voicePath,
-      "-f", "lavfi", "-t", "0.2", "-i", "aevalsrc=0.6*random(0)*exp(-45*t):s=44100",
+      "-f", "lavfi", "-t", "0.25", "-i",
+        "aevalsrc=0.8*sin(2*PI*900*t)*exp(-120*t)+0.4*random(0)*exp(-80*t):s=44100",
       "-filter_complex",
         `[1:a]adelay=${voiceMs}:all=1,volume=2.2,aformat=channel_layouts=stereo[vo];` +
-        `[2:a]adelay=${clickMs}:all=1,volume=0.7,aformat=channel_layouts=stereo[clk];` +
-        `[clk][vo]amix=inputs=2:normalize=0:duration=longest[a]`,
+        `[2:a]adelay=${clickMs}:all=1,volume=1.0,aformat=channel_layouts=stereo[clk];` +
+        `[clk][vo]amix=inputs=2:normalize=0:duration=longest,apad=whole_dur=${TARGET_SECONDS}[a]`,
       "-map", "0:v:0", "-map", "[a]",
-      "-c:v", "copy", "-c:a", "aac", "-shortest", "-movflags", "+faststart",
+      "-c:v", "copy", "-c:a", "aac", "-t", String(TARGET_SECONDS), "-movflags", "+faststart",
       outPath,
     ];
     await run(ffmpegPath, args);

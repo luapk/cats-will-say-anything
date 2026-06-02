@@ -87,13 +87,13 @@ function buildPrompt(voiceStyle, compliment, elevenLabs) {
 
   return (
     `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `The FIRST reference image is the CAT (the star). The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
-    `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
-    `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
-    `This cat is the star of the video. ` +
+    `The FIRST reference image is the CAT (the star). Reproduce this cat's appearance with extreme fidelity: ` +
+    `exact fur colour(s), every marking and pattern (stripes, patches, spots, bicolour splits), face shape, muzzle width, eye colour and shape, ear size and placement, coat texture (short/long/fluffy), and body size. ` +
+    `If the cat has distinctive facial markings — a blaze, mask, chin patch, eye liner, asymmetric colouring — replicate them precisely on the cat in the video. This is the single most important visual requirement. ` +
+    `The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
     `\n\n` +
-    `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
-    `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
+    `START OF VIDEO: Frame 1 — the cat is ALREADY fully in frame, seated or crouched in front of the button, facing it. The cat does not enter from off-screen. ` +
+    `Within the first second the cat simply lifts one paw and presses the button down — no slow build-up, no hesitation. The press happens immediately. ` +
     `\n\n` +
     `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
     `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video. The button reference image is the authoritative source for its look; this continuity-bible JSON spec describes the same prop: ` +
