@@ -34,21 +34,26 @@ function buildPrompt(voiceStyle, compliment) {
     `On the top of the yellow cap is a white cloud-shaped logo sticker with a yellow outline, ` +
     `reading "Temptations" in bold italic black script. The button sits directly on the yellow floor. ` +
     `\n\n` +
-    `STRICT TIMING — follow this sequence exactly, in this order, no exceptions: ` +
+    `STRICT AUDIO TIMELINE — there are exactly three audio phases, in this precise order: ` +
     `\n` +
-    `STEP 1 — SILENT: The video opens in complete silence. The cat is already positioned in front of the button. ` +
-    `It presses the yellow cap firmly with one paw. Minimum effort. The cat's mouth does not open. The cat does not speak. ` +
-    `There is NO voice before this moment. Zero. Silence until the paw makes contact. ` +
+    `PHASE 1 (0 sec to button press) — TOTAL SILENCE. No music, no voice, no dialogue. ` +
+    `The cat is already positioned in front of the button and presses the yellow cap firmly with one paw. ` +
+    `The cat's mouth stays completely closed. The cat never speaks at any point. ` +
     `\n` +
-    `STEP 2 — BUTTON SPEAKS: The very instant the paw touches the button, the BUTTON itself emits a voice — ` +
-    `as if it contains a built-in speaker — in the style of ${voiceStyle}, saying: "${compliment}". ` +
-    `The cat is NOT speaking. The cat's mouth stays closed. The BUTTON is the source of the sound. ` +
-    `Think of it like a talking toy or a novelty sound button — the voice comes out of the button, not the cat. ` +
+    `PHASE 2 (the moment of the press) — a single short mechanical "CLICK" sound effect, ` +
+    `the sound of the physical button being pressed down. This click is the FIRST sound in the entire video. ` +
     `\n` +
-    `STEP 3 — GRUMPY STARE: While the button plays its message, the cat turns its head and stares directly into the camera. ` +
-    `Deeply grumpy. Unblinking. Utterly unbothered. Contempt at rest. The cat remains silent throughout. ` +
+    `PHASE 3 (immediately after the click) — right after the click sound, and only then, ` +
+    `the BUTTON plays a recorded voice through a built-in speaker (like a talking novelty toy), ` +
+    `in the style of ${voiceStyle}, saying: "${compliment}". ` +
+    `The voice comes OUT OF THE BUTTON, not from the cat. The cat's mouth does not move. ` +
+    `The voice must be tightly synced to start right after the click — no gap, no overlap, no voice before the click. ` +
     `\n\n` +
-    `DO NOT play any voice, speech, or dialogue before Step 2. The audio track must be silent for Step 1. ` +
+    `CRITICAL: The order is always SILENCE, then CLICK, then VOICE. Never play the voice before the button is pressed. ` +
+    `The cat is silent for the whole video — it only presses the button; the button does the talking. ` +
+    `\n` +
+    `WHILE THE VOICE PLAYS: the cat turns its head and stares directly into the camera — deeply grumpy, unblinking, utterly unbothered. ` +
+    `\n\n` +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );

@@ -86,7 +86,6 @@ export default function CatsWillSayAnything() {
   const [analysis, setAnalysis] = useState(null);
   const [generatingStep, setGeneratingStep] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [selectedCompliment, setSelectedCompliment] = useState(null);
   const [loaderImgIndex, setLoaderImgIndex] = useState(0);
   const [generatingError, setGeneratingError] = useState("");
   const [msgIndex, setMsgIndex] = useState(0);
@@ -204,14 +203,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
-      const parsedVd = VOICES[parsed.voice] || VOICES[VOICE_KEYS[0]];
-      setSelectedCompliment(parsedVd.compliments[Math.floor(Math.random() * parsedVd.compliments.length)]);
       setAnalysis(parsed);
       setScreen("revealed");
     } catch {
       const fallback = VOICE_KEYS[Math.floor(Math.random() * VOICE_KEYS.length)];
-      const fallbackVd = VOICES[fallback];
-      setSelectedCompliment(fallbackVd.compliments[Math.floor(Math.random() * fallbackVd.compliments.length)]);
       setAnalysis({
         voice: fallback,
         reasoning: "Analysis encountered resistance. Your cat refused to cooperate with the process. Which, frankly, tells us everything we need to know.",
@@ -229,7 +224,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
     try {
       const vd = VOICES[analysis.voice];
-      const compliment = selectedCompliment || vd.compliments[0];
+      // Pick a fresh random compliment at generation time so every film —
+      // including repeat generations of the same cat — gets genuine variety.
+      const compliment = vd.compliments[Math.floor(Math.random() * vd.compliments.length)];
+      console.log("[createFilm] voice:", analysis.voice, "compliment:", compliment);
 
       // Start generation (video + audio baked in one call)
       setGeneratingStep("On set. Briefing the cat...");
@@ -290,7 +288,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
     setRevealStep(0);
     setElapsedSeconds(0);
     setGeneratingStep("");
-    setSelectedCompliment(null);
     setLoaderImgIndex(0);
   };
 
