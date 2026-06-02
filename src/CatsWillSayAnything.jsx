@@ -6,7 +6,7 @@ const VOICES = {
     emoji: "🎵",
     toneNote: "Deep African American baritone — every word arrives late and costs something",
     voiceDesc: "deep, velvet, impossibly smooth baritone — every word arrives slightly after you expected it",
-    voiceStyle: "a rich, resonant African American male bass-baritone voice — think Barry White or Isaac Hayes — speaking with extraordinary deliberateness. Each word is separated by a long, meaningful pause. The voice is impossibly smooth, almost liquid, with a slight hum of warmth underneath. Every consonant lands softly. Every pause is pregnant. It sounds like the voice knows something you don't, and is deciding whether to share it",
+    voiceStyle: "a rich, resonant deep male bass-baritone in the style of a classic 1970s soul crooner, speaking with extraordinary deliberateness. Each word is separated by a long, meaningful pause. The voice is impossibly smooth, almost liquid, velvet-warm, with a slight hum underneath. Every consonant lands softly. Every pause is pregnant. It sounds like the voice knows something you don't, and is deciding whether to share it",
     compliments: [
       "You smell... incredible. Did you roll in something dead? Be honest with me.",
       "I blinked at you. Slow. In my world, baby... that was a proposal.",
@@ -19,7 +19,7 @@ const VOICES = {
     emoji: "🥐",
     toneNote: "Silky French film star — existentially resigned, philosophically disappointed but magnanimous",
     voiceDesc: "silky French accent, existentially resigned, as if complimenting you is a philosophical act they find distasteful but necessary",
-    voiceStyle: "a French-accented male voice speaking English — think Jean Reno or the French narrator in a Parisian art film. The accent is genuine: lilting vowels, slightly nasal, Rs rolled gently, H sounds dropped. The tone is world-weary and philosophically resigned, as if this compliment is an existential burden the speaker has agreed to carry, reluctantly, out of a vague sense of duty. There is a faint, dry amusement underneath — the voice of someone who finds everything mildly disappointing but is too elegant to make a fuss about it",
+    voiceStyle: "a French-accented male voice speaking English, like a world-weary narrator in a Parisian art film. The accent is genuine: lilting vowels, slightly nasal, Rs rolled gently, H sounds dropped. The tone is world-weary and philosophically resigned, as if this compliment is an existential burden the speaker has agreed to carry, reluctantly, out of a vague sense of duty. There is a faint, dry amusement underneath — the voice of someone who finds everything mildly disappointing but is too elegant to make a fuss about it",
     compliments: [
       "Your hair, it shines. You have been licking it, non? Do not lie. I know the work of a tongue.",
       "If a face can launch a thousand ships, yours could launch... perhaps nine. Good ships, though.",
@@ -32,7 +32,7 @@ const VOICES = {
     emoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
     toneNote: "Measured Scottish gravitas — imperious, deliberate, delivers backhanded praise like a knighthood",
     voiceDesc: "measured Scottish brogue, imperious and deliberate, delivering backhanded praise with the weight of a man who has seen far greater things",
-    voiceStyle: "a Scottish male voice modelled on Sean Connery circa 2000 — a rich, gravelly baritone with a strong Edinburgh-Highlands Scottish accent. The Rs are slightly rolled. The vowels are rounded and full. The cadence is unhurried and authoritative, as if each sentence has been considered carefully and delivered from a position of supreme, unearned confidence. There is a mild rasp in the voice. Every word carries the quiet implication that this speaker has done far more impressive things than whatever you have done, and is choosing, generously, not to say so",
+    voiceStyle: "a distinguished older Scottish male voice — a rich, gravelly baritone with a strong Edinburgh-Highlands Scottish accent. The Rs are slightly rolled. The vowels are rounded and full. The cadence is unhurried and authoritative, as if each sentence has been considered carefully and delivered from a position of supreme, unearned confidence. There is a mild rasp in the voice. Every word carries the quiet implication that this speaker has done far more impressive things than whatever you have done, and is choosing, generously, not to say so",
     compliments: [
       "I have hunted many things. Birds. Moths. One unfortunate sock. None of them looked at me the way you do.",
       "You stare at the glowing box for hours. Unblinking. Patient. You would have made a passable cat.",
@@ -324,7 +324,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const raw = err?.message || String(err);
       const low = raw.toLowerCase();
       let friendly;
-      if (low.includes("quota") || low.includes("resource_exhausted") || low.includes("429")) {
+      if (low.includes("likeness") || low.includes("real people") || low.includes("celebrity") || low.includes("can't create videos") || low.includes("cannot create videos")) {
+        // Veo content filter — usually a named person/celebrity in the prompt.
+        friendly = `That couldn't be generated due to a content rule (often a real person's name in the styling). Please try again.\n\nDetail: ${raw}`;
+      } else if (low.includes("quota") || low.includes("resource_exhausted") || low.includes("429")) {
         // Hard quota cap — waiting won't help until it resets / billing is raised.
         friendly = `Video generation quota reached on the Google API key. This won't clear by retrying — the daily Veo quota is used up (or billing needs raising).\n\nDetail: ${raw}`;
       } else if (low.includes("overloaded") || low.includes("unavailable") || low.includes("503") || low.includes("high demand") || low.includes("try again")) {
