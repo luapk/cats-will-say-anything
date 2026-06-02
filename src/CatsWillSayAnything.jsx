@@ -94,12 +94,13 @@ export default function CatsWillSayAnything() {
   const [msgIndex, setMsgIndex] = useState(0);
   const [genMsgIndex, setGenMsgIndex] = useState(0);
   const [dragOver, setDragOver] = useState(false);
-  const [notCatError, setNotCatError] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [revealStep, setRevealStep] = useState(0);
   const fileInputRef = useRef(null);
   const msgIntervalRef = useRef(null);
   const genMsgIntervalRef = useRef(null);
   const loaderImgIntervalRef = useRef(null);
+  const lastComplimentRef = useRef(null);
 
   useEffect(() => {
     if (screen === "analyzing") {
@@ -143,7 +144,7 @@ export default function CatsWillSayAnything() {
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     stopAudio();
-    setNotCatError(false);
+    setUploadError("");
     setCatImage(URL.createObjectURL(file));
 
     // Compress to max 1024px and JPEG 0.82 before storing — keeps payload
@@ -176,14 +177,24 @@ export default function CatsWillSayAnything() {
     stopAudio();
     setScreen("analyzing");
     try {
-      const prompt = `You are analysing a photo for the "Cats Will Say Anything" Temptations cat treats campaign.
+      const prompt = `You are a content moderator and cat analyst for the "Cats Will Say Anything" Temptations cat treats campaign. This is a family-friendly brand app.
 
-FIRST: Check whether the image primarily features a cat. If the main subject is NOT a cat — for example it is a human, a dog, another animal, an object, or a scene with no cat — respond ONLY with this exact JSON and nothing else:
+STEP 1 — CONTENT MODERATION (check this first, before anything else):
+Examine the image carefully for any of the following. Apply a STRICT threshold — if there is any low-to-medium likelihood of a violation, treat it as a violation:
+- Explicit or suggestive sexual content, nudity, or adult imagery
+- Hate symbols, slurs, or imagery associated with hate groups (e.g. Nazi imagery, KKK, white supremacist symbols, racial slurs visible as text)
+- Graphic violence, gore, or disturbing imagery
+- Drugs, drug paraphernalia, or drug-related content
+
+If ANY of the above are present or likely present, respond ONLY with this exact JSON and nothing else:
+{"error": "content_violation"}
+
+STEP 2 — SUBJECT CHECK:
+If the image passed Step 1, check whether the image primarily features a cat. If the main subject is NOT a cat — for example it is a human, a dog, another animal, an object, or a scene with no cat — respond ONLY with this exact JSON and nothing else:
 {"error": "not_a_cat"}
 
-If the image DOES primarily feature a cat, continue:
-
-Look closely at the cat's fur, eyes, expression, posture, and overall energy. Make specific visual observations, then assign ONE of these three voice archetypes that best fits what you see:
+STEP 3 — CAT ANALYSIS:
+If the image passed both checks above and primarily features a cat, assign ONE of these three voice archetypes:
 
 - Barry White Core (deep African American baritone — for cats with heavy-lidded eyes, a slow blinking quality, or plush velvet-like fur that suggests smooth authority)
 - French Smooth Talker (silky French film star — for cats with a certain je ne sais quoi, an elegant but faintly disappointed bearing, or refined colouring)
@@ -213,9 +224,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
+      if (parsed.error === "content_violation") {
+        setScreen("upload");
+        setUploadError("That image can't be used here. Please upload an appropriate photo of your cat.");
+        return;
+      }
       if (parsed.error === "not_a_cat") {
         setScreen("upload");
-        setNotCatError(true);
+        setUploadError("That doesn't look like a cat! Please upload a photo where a cat is the main subject.");
         return;
       }
       setAnalysis(parsed);
@@ -239,9 +255,10 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
     try {
       const vd = VOICES[analysis.voice];
-      // Pick a fresh random compliment at generation time so every film —
-      // including repeat generations of the same cat — gets genuine variety.
-      const compliment = vd.compliments[Math.floor(Math.random() * vd.compliments.length)];
+      // Exclude the last-used compliment so the same line never plays twice in a row.
+      const pool = vd.compliments.filter(c => c !== lastComplimentRef.current);
+      const compliment = (pool.length > 0 ? pool : vd.compliments)[Math.floor(Math.random() * (pool.length > 0 ? pool : vd.compliments).length)];
+      lastComplimentRef.current = compliment;
       console.log("[createFilm] voice:", analysis.voice, "compliment:", compliment);
 
       // Start generation (video + audio baked in one call)
@@ -300,7 +317,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
     setImageBase64(null);
     setAnalysis(null);
     setGeneratingError("");
-    setNotCatError(false);
+    setUploadError("");
     setRevealStep(0);
     setElapsedSeconds(0);
     setGeneratingStep("");
@@ -835,7 +852,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
               style={{ display: "none" }}
             />
 
-            {notCatError && (
+            {uploadError && (
               <div style={{
                 background: "#0A0A0A",
                 color: "#FFD600",
@@ -847,7 +864,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                 textAlign: "center",
                 lineHeight: 1.5,
               }}>
-                🐾 That doesn't look like a cat! Please upload a photo where a cat is the main subject.
+                🐾 {uploadError}
               </div>
             )}
 
