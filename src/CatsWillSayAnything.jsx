@@ -307,15 +307,30 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
       // Poll until done (max 10 min)
       let finalUrl = null;
+      let needsVoice = false;
       for (let i = 0; i < 120; i++) {
         await new Promise(r => setTimeout(r, 5000));
         setElapsedSeconds((i + 1) * 5);
         const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}&t=${Date.now()}`);
         const pollData = await pollResp.json();
-        if (pollData.status === "done") { finalUrl = pollData.url; break; }
+        if (pollData.status === "done") { finalUrl = pollData.url; needsVoice = !!pollData.needsVoice; break; }
         if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
       }
       if (!finalUrl) throw new Error("Generation timed out after 10 minutes");
+
+      // ElevenLabs mode: the clip is silent (click only). Add the voice now,
+      // baked in at the detected press moment.
+      if (needsVoice) {
+        setGeneratingStep("Recording the voiceover...");
+        const finResp = await fetch("/api/finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ videoUrl: finalUrl, voice: analysis.voice, compliment }),
+        });
+        const finData = await finResp.json();
+        if (!finResp.ok || !finData.url) throw new Error(finData.error || "Voiceover compositing failed");
+        finalUrl = finData.url;
+      }
 
       const shareParams = new URLSearchParams({
         v: finalUrl,
