@@ -79,6 +79,9 @@ const GENERATING_STEPS = [
 
 export default function CatsWillSayAnything() {
   const navigate = useNavigate();
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem("unlocked") === "1");
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState(false);
   const [screen, setScreen] = useState("upload");
   const [catImage, setCatImage] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
@@ -658,9 +661,106 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           color: #6B4F00;
           text-align: center;
         }
+        .pw-wrap {
+          min-height: 100vh;
+          background: #FFD600;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 32px 24px;
+          gap: 24px;
+          font-family: 'Roboto', sans-serif;
+        }
+        .pw-card {
+          background: #fff;
+          border-radius: 20px;
+          padding: 28px 24px;
+          width: 100%;
+          max-width: 360px;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+        }
+        .pw-label {
+          font-size: 10px;
+          font-weight: 900;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          color: #0A0A0A;
+          font-family: 'FilsonPro', 'Nunito', sans-serif;
+        }
+        .pw-input {
+          width: 100%;
+          padding: 14px 16px;
+          border: 2.5px solid #0A0A0A;
+          border-radius: 12px;
+          font-size: 17px;
+          font-family: 'Roboto', sans-serif;
+          font-weight: 700;
+          outline: none;
+          letter-spacing: 3px;
+          transition: border-color 0.2s;
+        }
+        .pw-input:focus { border-color: #FFD600; }
+        .pw-input.error { border-color: #E8001C; }
+        .pw-error {
+          font-size: 12px;
+          font-weight: 700;
+          color: #E8001C;
+          text-align: center;
+        }
       `}</style>
 
-      <div className="cwsa-wrap">
+      {!unlocked && (
+        <div className="pw-wrap">
+          <div className="cwsa-brand">
+            <img src="/logo.png" alt="Temptations"
+              style={{ height: 120, display: "block", margin: "0 auto 8px", objectFit: "contain" }}
+              onError={(e) => { e.target.style.display = "none"; }} />
+            <div className="cwsa-brand-sub">presents</div>
+            <h1 className="cwsa-title small">
+              <span>Cats Will</span><br />
+              <span className="cwsa-title-yellow">Say Anything</span>
+            </h1>
+          </div>
+          <div className="pw-card">
+            <div className="pw-label">Enter password</div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (pwInput.trim().toLowerCase() === "treats") {
+                sessionStorage.setItem("unlocked", "1");
+                setUnlocked(true);
+              } else {
+                setPwError(true);
+                setPwInput("");
+                setTimeout(() => setPwError(false), 2000);
+              }
+            }}>
+              <input
+                className={`pw-input${pwError ? " error" : ""}`}
+                type="password"
+                placeholder="••••••"
+                value={pwInput}
+                autoFocus
+                autoComplete="off"
+                onChange={(e) => setPwInput(e.target.value)}
+              />
+              {pwError && <p className="pw-error" style={{ marginTop: 8 }}>Incorrect password</p>}
+              <button
+                type="submit"
+                className="btn-red"
+                style={{ width: "100%", marginTop: 14 }}
+              >
+                Enter →
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {unlocked && <div className="cwsa-wrap">
 
         {/* Brand header */}
         <div className="cwsa-brand">
@@ -857,7 +957,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           </div>
         )}
 
-      </div>
+      </div>}
     </>
   );
 }
