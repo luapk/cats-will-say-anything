@@ -168,18 +168,17 @@ export default async function handler(req, res) {
 
     // 4b. Bake audio from scratch onto the extended clip. We DISCARD Veo's
     //     unreliable generated audio (stray clicks) and build a clean track:
-    //     a synthesized button click at the detected press, then the boosted VO
+    //     the real button click MP3 at the detected press, then the boosted VO
     //     0.5s after it. Audio is padded to TARGET_SECONDS so the full video
     //     plays out — no -shortest flag that would cut it short.
     //
-    //     input 0 = extended video, 1 = voice mp3,
-    //     2 = synthesized click (plastic-thud tone + noise burst via lavfi).
+    //     input 0 = extended video, 1 = voice mp3, 2 = click.mp3
+    const clickFilePath = join(process.cwd(), "public", "click.mp3");
     const args = [
       "-y",
       "-i", extPath,
       "-i", voicePath,
-      "-f", "lavfi", "-t", "0.25", "-i",
-        "aevalsrc=0.8*sin(2*PI*900*t)*exp(-120*t)+0.4*random(0)*exp(-80*t):s=44100",
+      "-i", clickFilePath,
       "-filter_complex",
         `[1:a]adelay=${voiceMs}:all=1,volume=2.2,aformat=channel_layouts=stereo[vo];` +
         `[2:a]adelay=${clickMs}:all=1,volume=1.0,aformat=channel_layouts=stereo[clk];` +

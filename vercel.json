@@ -8,7 +8,7 @@
     "api/gemini.js": { "maxDuration": 30 },
     "api/finalize.js": {
       "maxDuration": 60,
-      "includeFiles": "node_modules/ffmpeg-static/**"
+      "includeFiles": ["node_modules/ffmpeg-static/**", "public/click.mp3"]
     }
   }
 }
