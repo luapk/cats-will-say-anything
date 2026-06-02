@@ -27,7 +27,7 @@ const ELEVEN_MODEL = "eleven_multilingual_v2";
 const VOICE_IDS = {
   "Barry White Core": "hILdTfuUq4LRBMrxHERr",
   "French Smooth Talker": "FL0d5832ACnJkBaedeKX",
-  "Early 2000s Sean Connery": "KJEm37Eur9OPxG4df2Cu",
+  "Early 2000s Sean Connery": "csXxiUN2BUFflsCaDxPM",
 };
 
 const DEFAULT_PRESS_SECONDS = 2.0; // fallback if detection fails
@@ -87,7 +87,7 @@ async function detectPressSeconds(videoBase64, key) {
 const VOICE_SETTINGS = {
   "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },  // Barry White Core
   "FL0d5832ACnJkBaedeKX": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // French Smooth Talker
-  "KJEm37Eur9OPxG4df2Cu": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // Early 2000s Sean Connery
+  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // Early 2000s Sean Connery
 };
 const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
 
