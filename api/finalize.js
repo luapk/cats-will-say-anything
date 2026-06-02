@@ -57,8 +57,8 @@ const PRESS_MIN_SECONDS = 0.2;
 // and VOICE_GAP_SECONDS (> the click's length) keeps the voice strictly AFTER it.
 const CLICK_LEAD_TRIM = 0.05;       // leading silence trimmed off the click file
 const CLICK_VOLUME = 2.0;           // boost — the source click is quiet (~ -33 dB mean)
+const CLICK_OFFSET = 0.18;          // nudge later so the click lands as the button bottoms out
 const VOICE_GAP_SECONDS = 0.65;     // press → voice; the click fully finishes first
-const TAIL_SECONDS = 0.6;           // breathing room held after the voice ends
 
 // execFile that rejects on a non-zero exit.
 function run(bin, args) {
@@ -132,8 +132,8 @@ async function detectPressVisual(inPath, key) {
     const parts = [{
       text:
         `Below are ${frames.length} sequential frames from a short video of a cat pressing a button with its paw. ` +
-        `Each frame is preceded by its index. Find the FIRST frame in which the cat's paw is resting ON the button and pressing it down ` +
-        `(paw in direct contact with the top of the button — not still reaching toward it, not already lifted away). ` +
+        `Each frame is preceded by its index. Find the frame at the moment the button is FULLY pressed down — ` +
+        `the paw at the bottom of its travel, pressing the button to its lowest point (not the first light touch as it reaches in, and not after the paw has started lifting away). ` +
         `Respond ONLY as JSON, no markdown: {"frameIndex": N} where N is that frame's index. ` +
         `If the paw never clearly presses the button in these frames, respond {"frameIndex": null}.`
     }];
@@ -259,29 +259,29 @@ export default async function handler(req, res) {
     ]);
     await writeFile(voicePath, voiceBuffer);
 
-    // 3. Resolve the press moment from Gemini's estimate (or fixed fallback).
+    // 3. Resolve the press moment (Gemini's fully-pressed frame, nudged slightly
+    //    later by CLICK_OFFSET so the click lands as the button bottoms out).
     let { pressSeconds, source } = resolvePress(visual);
-    pressSeconds = Math.min(Math.max(pressSeconds, PRESS_MIN_SECONDS), videoLen - 0.1);
-    console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} (visual=${visual})`);
+    pressSeconds = Math.min(Math.max(pressSeconds + CLICK_OFFSET, PRESS_MIN_SECONDS), videoLen - 0.1);
+    console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} (visual=${visual}, +${CLICK_OFFSET} offset)`);
 
-    // 4. Compute timing and the freeze-extend needed so the voice is never cut.
-    const voiceLen = (await mediaDuration(voicePath)) || 4;
+    // 4. Compute timing. The clip stays at its native length (8s) — we never
+    //    freeze-extend. The voice starts after the click; if a long voiceover would
+    //    run past the end it is simply truncated (compliments are kept short to fit).
     const clickMs = Math.round(pressSeconds * 1000);
     const voiceStart = pressSeconds + VOICE_GAP_SECONDS;
     const voiceMs = Math.round(voiceStart * 1000);
-    const target = Math.max(videoLen, voiceStart + voiceLen + TAIL_SECONDS);
-    const extend = Math.max(0, target - videoLen);
-    console.log(`[finalize] click@${clickMs}ms voice@${voiceMs}ms videoLen=${videoLen.toFixed(2)} ` +
-      `voiceLen=${voiceLen.toFixed(2)} target=${target.toFixed(2)} extend=${extend.toFixed(2)}`);
+    const target = videoLen;
+    console.log(`[finalize] click@${clickMs}ms voice@${voiceMs}ms videoLen=${videoLen.toFixed(2)} (8s cap, no extend)`);
 
-    // 5. Build the final video: freeze-extend the last frame, then bake the audio
-    //    track from scratch — click at the press, voice just after. Veo's own
-    //    audio is mapped from nothing (discarded entirely).
+    // 5. Build the final video: keep the native 8s frames, bake the audio track
+    //    from scratch — click at the press, voice just after. Veo's own audio is
+    //    discarded entirely.
     // Click: trim its lead-in silence so the transient lands ON the press, boost
     // it (the source is quiet), force stereo, then delay to the press moment.
     // Voice: force stereo and delay to press + gap so it starts AFTER the click.
     const filter =
-      `[0:v]tpad=stop_mode=clone:stop_duration=${extend.toFixed(3)},setsar=1[v];` +
+      `[0:v]setsar=1[v];` +
       `[1:a]atrim=start=${CLICK_LEAD_TRIM},asetpts=PTS-STARTPTS,volume=${CLICK_VOLUME},` +
         `aformat=channel_layouts=stereo,adelay=${clickMs}|${clickMs}[click];` +
       `[2:a]aformat=channel_layouts=stereo,adelay=${voiceMs}|${voiceMs}[vo];` +

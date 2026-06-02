@@ -2,7 +2,7 @@
 // POST  { imageBase64, imageMimeType, voiceStyle, compliment }  → { operationName }
 // GET   ?op={operationName} → { status: "pending"|"done"|"failed", url?, error? }
 
-import { put } from "@vercel/blob";
+import { put, list } from "@vercel/blob";
 import { randomBytes } from "crypto";
 
 const VEO_BASE = "https://generativelanguage.googleapis.com/v1beta";
@@ -43,7 +43,23 @@ const BUTTON_BIBLE = JSON.stringify({
   scale: "~90mm wide — approximately as wide as the cat's paw is long.",
 });
 
-function buildPrompt(voiceStyle, compliment, elevenLabs) {
+// Five distinct closing beats for the last ~1.5–2s. Chosen SEQUENTIALLY across
+// all films (not per-user, not random) via a shared counter in Blob storage, so
+// consecutive generations rotate through the full set.
+const ENDINGS = [
+  // 0 — crash zoom (the original)
+  `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. `,
+  // 1 — wide pull-back, patient
+  `FINAL SHOT (last 1.5–2 seconds): The camera pulls back to a wide shot, the cat now small and centred in the vast empty yellow studio, sitting bolt upright and perfectly still, paws together, waiting with infinite patience. Hold on this composed wide image as the clip ends. `,
+  // 2 — mortified
+  `FINAL SHOT (last 1.5–2 seconds): The cat suddenly looks mortified — ears flattening back, eyes darting away from the lens, head shrinking down between the shoulders, deeply embarrassed by what was just said. Hold on this sheepish, cringing expression as the clip ends. `,
+  // 3 — smug
+  `FINAL SHOT (last 1.5–2 seconds): The cat gives one slow, supremely self-satisfied blink directly down the lens, chin lifting slightly, utterly pleased with itself. Hold on this smug, knowing expression as the clip ends. `,
+  // 4 — unbothered exit
+  `FINAL SHOT (last 1.5–2 seconds): The cat dismissively breaks eye contact, turns its head away and begins to stroll out of frame, tail flicking once, completely done with you. Hold on the emptying frame as the clip ends. `,
+];
+
+function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
   const audioSection = elevenLabs
     ? (
       // ElevenLabs mode: Veo is given NO audio instructions at all. Any audio
@@ -53,7 +69,7 @@ function buildPrompt(voiceStyle, compliment, elevenLabs) {
       // So this section describes the ACTION only, never sound.
       `ACTION — CRITICAL: At roughly 1 second in, the cat reaches out with one paw and presses the yellow cap straight down a short distance, then withdraws the paw. ONE press only — no second tap, no repeated pawing, no returning to the button. The cat's mouth stays completely shut throughout — no meowing, no vocalisation of any kind. ` +
       `\n\n` +
-      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera for the remainder of the clip. ` +
+      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera — until the final shot below takes over. ` +
       `\n\n`
     )
     : (
@@ -98,12 +114,38 @@ function buildPrompt(voiceStyle, compliment, elevenLabs) {
     `The button sits directly on the yellow floor. Its yellow cap is seated FLUSH in the red base in its resting state (the reference image shows this resting, depressed-looking state) — the cap never protrudes or sticks up; pressing only pushes it a short way straight down and inward. Its surface is shiny plastic with glossy specular highlights. ` +
     `\n\n` +
     audioSection +
-    `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame with its expression. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. ` +
+    ending +
     `\n\n` +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
     `NO TEXT ON SCREEN: Do not render any words, captions, subtitles, labels, or text of any kind burned into the video frames. No on-screen text whatsoever. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
+}
+
+// Sequential ending rotation, shared across all films via a Blob counter.
+// Reads the current count, returns count % ENDINGS.length, and persists the
+// incremented count (fire-and-forget). Under rare concurrent writes a number may
+// repeat — harmless for this use. Falls back to a random ending if Blob is down.
+const ENDING_COUNTER_KEY = "state/ending-counter.json";
+
+async function nextEndingIndex() {
+  try {
+    let count = 0;
+    const { blobs } = await list({ prefix: ENDING_COUNTER_KEY });
+    if (blobs[0]) {
+      const r = await fetch(blobs[0].url, { cache: "no-store" });
+      if (r.ok) count = Number((await r.json())?.count) || 0;
+    }
+    const index = count % ENDINGS.length;
+    put(ENDING_COUNTER_KEY, JSON.stringify({ count: count + 1 }), {
+      access: "public", addRandomSuffix: false, allowOverwrite: true,
+      contentType: "application/json", cacheControlMaxAge: 0,
+    }).catch((e) => console.error("[veo] ending counter write failed:", e.message));
+    return index;
+  } catch (e) {
+    console.error("[veo] ending counter read failed, using random:", e.message);
+    return Math.floor(Math.random() * ENDINGS.length);
+  }
 }
 
 function extractVideoUrl(response) {
@@ -162,7 +204,9 @@ export default async function handler(req, res) {
     // When ElevenLabs voiceover is enabled, Veo renders a SILENT (click-only) clip and
     // the voice is composited in later. Otherwise Veo bakes the voice itself (legacy).
     const elevenLabs = /^(1|true)$/i.test(process.env.USE_ELEVENLABS || "");
-    const prompt = buildPrompt(voiceStyle, compliment, elevenLabs);
+    const endingIndex = await nextEndingIndex();
+    console.log(`[veo POST] ending index: ${endingIndex} of ${ENDINGS.length}`);
+    const prompt = buildPrompt(voiceStyle, compliment, elevenLabs, ENDINGS[endingIndex]);
     const referenceImages = [{
       image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
       referenceType: "asset",
