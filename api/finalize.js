@@ -1,7 +1,5 @@
-// Finalize: take a SILENT Veo clip (click only), detect the button-press moment
-// with Gemini, generate the persona voice with ElevenLabs, and bake the voice
-// into the MP4 with ffmpeg — anchored just after the press so it can never play
-// early. Returns the public URL of the final, shareable, audio-baked video.
+// Finalize: take a Veo clip, add a real button click + ElevenLabs voiceover
+// baked in at a fixed offset (cat presses within the first second per prompt).
 //
 // POST { videoUrl, voice, compliment } → { url }
 
@@ -10,7 +8,8 @@ import { randomBytes } from "crypto";
 import { execFile } from "child_process";
 import { writeFile, readFile, unlink } from "fs/promises";
 import { tmpdir } from "os";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 import ffmpegPath from "ffmpeg-static";
 
 export const config = {
@@ -18,8 +17,6 @@ export const config = {
   maxDuration: 60,
 };
 
-const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
-const GEMINI_MODEL = "gemini-2.5-flash";
 const ELEVEN_BASE = "https://api.elevenlabs.io/v1/text-to-speech";
 const ELEVEN_MODEL = "eleven_multilingual_v2";
 
@@ -30,9 +27,23 @@ const VOICE_IDS = {
   "Early 2000s Sean Connery": "csXxiUN2BUFflsCaDxPM",
 };
 
-const DEFAULT_PRESS_SECONDS = 2.0; // fallback if detection fails
-const VOICE_GAP_SECONDS = 0.5;     // gap between click and VO start
-const TARGET_SECONDS = 12;         // final video duration (Veo=8s + 4s freeze)
+// Fixed press timing. The Veo prompt puts the cat already in frame pressing
+// within the first second, so 1.0s is a reliable contact point.
+const PRESS_SECONDS = 1.0;
+const VOICE_GAP_SECONDS = 0.5;  // VO starts this long after the click
+const TARGET_SECONDS = 12;      // final video duration (Veo 8s + 4s freeze)
+
+// click.mp3 is bundled via vercel.json includeFiles alongside this function.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLICK_PATH = join(__dirname, "..", "public", "click.mp3");
+
+// Per-persona voice settings.
+const VOICE_SETTINGS = {
+  "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },                   // Barry White Core
+  "I1T6PEfqPxl45yKRN4aS": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },                   // French Smooth Talker
+  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true, speed: 0.82 },       // Early 2000s Sean Connery
+};
+const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
 
 function run(bin, args) {
   return new Promise((resolve, reject) => {
@@ -43,56 +54,6 @@ function run(bin, args) {
   });
 }
 
-// Ask Gemini for the exact second the paw presses the button down.
-async function detectPressSeconds(videoBase64, key) {
-  try {
-    const r = await fetch(`${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { inlineData: { mimeType: "video/mp4", data: videoBase64 } },
-            { text:
-              `This is a short video of a cat pressing a yellow button with its paw. ` +
-              `Watch the paw carefully and identify the precise moment the button reaches the BOTTOM of its travel — ` +
-              `the instant it is fully depressed and would make its click. This is the end of the downward press, ` +
-              `not the start of the paw's movement. If the cat presses more than once, use the FIRST full press. ` +
-              `Be precise; do not under-estimate — it is better to be a fraction late than early. ` +
-              `Respond ONLY as JSON, no markdown: {"pressSeconds": N} where N is that time in seconds as a decimal.` }
-          ]
-        }],
-        generationConfig: { temperature: 0, maxOutputTokens: 64, thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) { console.error("[finalize] gemini detect failed:", JSON.stringify(data)); return DEFAULT_PRESS_SECONDS; }
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const clean = text.replace(/```json|```/g, "").trim();
-    const parsed = JSON.parse(clean);
-    const t = Number(parsed.pressSeconds);
-    if (!Number.isFinite(t) || t < 0 || t > 7.5) {
-      console.warn("[finalize] press time out of range, using fallback:", t);
-      return DEFAULT_PRESS_SECONDS;
-    }
-    console.log("[finalize] detected press seconds:", t);
-    return t;
-  } catch (e) {
-    console.error("[finalize] press detection error, using fallback:", e.message);
-    return DEFAULT_PRESS_SECONDS;
-  }
-}
-
-// Per-persona voice settings. Barry White is working well at defaults;
-// French and Scottish need style boosted to 0.7 to pull the accent out.
-const VOICE_SETTINGS = {
-  "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },  // Barry White Core
-  "I1T6PEfqPxl45yKRN4aS": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // French Smooth Talker
-  "csXxiUN2BUFflsCaDxPM": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true, speed: 0.82 },  // Early 2000s Sean Connery
-};
-const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
-
-// Generate the voiceover MP3 from the persona's fixed ElevenLabs voice ID.
 async function generateVoice(voiceId, text, apiKey) {
   const r = await fetch(`${ELEVEN_BASE}/${voiceId}`, {
     method: "POST",
@@ -117,9 +78,7 @@ async function generateVoice(voiceId, text, apiKey) {
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const googleKey = process.env.GOOGLE_API_KEY;
   const elevenKey = process.env.ELEVENLABS_API_KEY;
-  if (!googleKey) return res.status(500).json({ error: "GOOGLE_API_KEY not configured" });
   if (!elevenKey) return res.status(500).json({ error: "ELEVENLABS_API_KEY not configured" });
   if (!ffmpegPath) return res.status(500).json({ error: "ffmpeg binary not available" });
 
@@ -130,33 +89,29 @@ export default async function handler(req, res) {
   const voiceId = VOICE_IDS[voice];
   if (!voiceId) return res.status(400).json({ error: `Unknown voice: ${voice}` });
 
+  const clickMs = Math.round(PRESS_SECONDS * 1000);
+  const voiceMs = Math.round((PRESS_SECONDS + VOICE_GAP_SECONDS) * 1000);
+  console.log(`[finalize] voice "${voice}" — click @ ${clickMs}ms, VO @ ${voiceMs}ms, click file: ${CLICK_PATH}`);
+
   const id = randomBytes(8).toString("hex");
-  const inPath = join(tmpdir(), `${id}-in.mp4`);
+  const inPath  = join(tmpdir(), `${id}-in.mp4`);
   const extPath = join(tmpdir(), `${id}-ext.mp4`);
   const voicePath = join(tmpdir(), `${id}-vo.mp3`);
   const outPath = join(tmpdir(), `${id}-out.mp4`);
 
   try {
-    // 1. Download the silent Veo clip.
-    const vresp = await fetch(videoUrl);
-    if (!vresp.ok) throw new Error(`Failed to fetch source video: HTTP ${vresp.status}`);
-    const videoBuffer = Buffer.from(await vresp.arrayBuffer());
-    await writeFile(inPath, videoBuffer);
-
-    // 2 & 3. Detect press moment and generate the voice — in parallel.
-    const [pressSeconds, voiceBuffer] = await Promise.all([
-      detectPressSeconds(videoBuffer.toString("base64"), googleKey),
+    // 1. Download Veo clip + generate ElevenLabs voice in parallel.
+    const [videoBuffer, voiceBuffer] = await Promise.all([
+      fetch(videoUrl).then(r => {
+        if (!r.ok) throw new Error(`Failed to fetch video: HTTP ${r.status}`);
+        return r.arrayBuffer().then(Buffer.from);
+      }),
       generateVoice(voiceId, compliment, elevenKey),
     ]);
+    await writeFile(inPath, videoBuffer);
     await writeFile(voicePath, voiceBuffer);
 
-    const clickMs = Math.round(pressSeconds * 1000);
-    const voiceMs = Math.round((pressSeconds + VOICE_GAP_SECONDS) * 1000);
-    console.log(`[finalize] voice "${voice}" — click @ ${clickMs}ms, VO @ ${voiceMs}ms`);
-
-    // 4a. Extend the Veo clip to TARGET_SECONDS by freeze-holding the last frame.
-    //     Veo caps at 8s; without this the VO gets cut off mid-sentence.
-    //     ultrafast preset keeps re-encode time under ~3s on Vercel.
+    // 2. Extend the 8s Veo clip to TARGET_SECONDS by freezing the last frame.
     const padSeconds = TARGET_SECONDS - 8;
     await run(ffmpegPath, [
       "-y", "-i", inPath,
@@ -166,19 +121,14 @@ export default async function handler(req, res) {
       extPath,
     ]);
 
-    // 4b. Bake audio from scratch onto the extended clip. We DISCARD Veo's
-    //     unreliable generated audio (stray clicks) and build a clean track:
-    //     the real button click MP3 at the detected press, then the boosted VO
-    //     0.5s after it. Audio is padded to TARGET_SECONDS so the full video
-    //     plays out — no -shortest flag that would cut it short.
-    //
-    //     input 0 = extended video, 1 = voice mp3, 2 = click.mp3
-    const clickFilePath = join(process.cwd(), "public", "click.mp3");
-    const args = [
+    // 3. Bake clean audio track: click.mp3 at press moment + boosted VO 0.5s later.
+    //    Veo's own audio is discarded. apad fills silence to TARGET_SECONDS so the
+    //    full 12s video plays out without being cut short.
+    await run(ffmpegPath, [
       "-y",
       "-i", extPath,
       "-i", voicePath,
-      "-i", clickFilePath,
+      "-i", CLICK_PATH,
       "-filter_complex",
         `[1:a]adelay=${voiceMs}:all=1,volume=2.2,aformat=channel_layouts=stereo[vo];` +
         `[2:a]adelay=${clickMs}:all=1,volume=1.0,aformat=channel_layouts=stereo[clk];` +
@@ -186,10 +136,9 @@ export default async function handler(req, res) {
       "-map", "0:v:0", "-map", "[a]",
       "-c:v", "copy", "-c:a", "aac", "-t", String(TARGET_SECONDS), "-movflags", "+faststart",
       outPath,
-    ];
-    await run(ffmpegPath, args);
+    ]);
 
-    // 5. Store the final audio-baked MP4.
+    // 4. Store final MP4.
     const finalBuffer = await readFile(outPath);
     const { url } = await put(`cats/${id}-final.mp4`, finalBuffer, {
       access: "public",
@@ -197,12 +146,11 @@ export default async function handler(req, res) {
     });
     console.log("[finalize] stored final to blob:", url);
 
-    return res.status(200).json({ url, pressSeconds });
+    return res.status(200).json({ url });
   } catch (err) {
     console.error("[finalize] error:", err.message, err.stack);
     return res.status(500).json({ error: err.message });
   } finally {
-    // Best-effort temp cleanup.
     for (const p of [inPath, extPath, voicePath, outPath]) {
       unlink(p).catch(() => {});
     }
