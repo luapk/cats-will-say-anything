@@ -1,19 +1,13 @@
 // Finalize: take a Veo clip (no usable audio) and bake the audio track from
 // scratch — a crisp click.mp3 at the exact button-press moment, then the
-// ElevenLabs voice just after it. The press moment is found by VISUAL MOTION
-// DETECTION (the frame of peak inter-frame motion = the paw striking the button),
-// semantically gated by a coarse Gemini visual estimate, with a fixed fallback.
-// Veo's original audio is discarded entirely.
+// ElevenLabs voice just after it. The press moment is found by asking Gemini to
+// watch the generated video and identify when the paw contacts the button, with a
+// fixed fallback if that fails. Veo's original audio is discarded entirely.
 //
-// Why motion detection (not Veo's audio): asking Veo for any sound — even a
-// single click — trips its audio safety filter, so the clip is generated with no
-// audio instructions at all. We therefore can't rely on a click to time against.
-// Instead we measure per-frame motion energy: the cat reaching out and striking
-// the button is the dominant motion in the opening seconds, and its peak pins the
-// contact frame far more tightly (~1 frame) than an LLM eyeballing frames (±0.5s).
-// Gemini supplies only a rough window so unrelated motion (a twitch, the crash
-// zoom) can never be mistaken for the press. The last frame is frozen so a long
-// or late voiceover is never cut off.
+// Why Gemini-only (not motion energy): the button is already in its depressed
+// resting state, so the paw contacting it produces almost no inter-frame pixel
+// delta. Motion energy reliably picks the wrong frame (camera drift, fur movement)
+// and was worse than Gemini's semantic understanding of the footage.
 //
 // POST { videoUrl, voice, compliment } → { url, pressSeconds, pressSource }
 
@@ -55,16 +49,8 @@ const VOICE_SETTINGS = {
 };
 const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
 
-// Press-detection tuning. Gemini's visual estimate is the TRUSTED anchor (it
-// understands what a button-press is); per-frame motion is used only to refine
-// that estimate to the exact contact frame when it closely agrees — it never
-// overrides Gemini, because on cinematic footage (camera moves, crash zoom) the
-// raw motion peak is unreliable.
-const DEFAULT_PRESS_SECONDS = 1.1;  // blind fallback (prompt makes the cat press ~1s in)
-const PRESS_MIN_SECONDS = 0.2;      // ignore the very start (encode warm-up)
-const PRESS_MAX_SECONDS = 4.5;      // ignore late motion (e.g. the crash-zoom)
-const GEMINI_WINDOW = 0.3;          // refine to a motion peak only within ± this of Gemini
-const MOTION_MIN_ENERGY = 0.8;      // a peak below this means "no real motion found"
+const DEFAULT_PRESS_SECONDS = 1.1;  // fallback — prompt instructs Veo to press ~1s in
+const PRESS_MIN_SECONDS = 0.2;
 
 // Audio layout. The real click.mp3 is ~0.55s long with ~0.05s of lead-in silence;
 // CLICK_LEAD_TRIM drops that silence so the click's transient lands ON the press,
@@ -106,41 +92,8 @@ async function mediaDuration(path) {
   return parseDuration(stderr);
 }
 
-// Visual motion detection: measure per-frame motion energy (mean luma of the
-// frame-to-frame difference). The paw reaching out and striking the button is
-// the dominant motion in the opening seconds, so the energy peak pins the contact
-// frame. Returns { samples:[{t,e}], duration }.
-async function detectMotion(inPath) {
-  // metadata=print writes to stdout (file=-); ffmpeg's own logs go to stderr.
-  const { stdout, stderr } = await capture(ffmpegPath, [
-    "-hide_banner", "-i", inPath,
-    "-vf", "tblend=all_mode=difference,signalstats,metadata=print:file=-",
-    "-f", "null", "-",
-  ]);
-  const duration = parseDuration(stderr);
-  const samples = [];
-  let t = null;
-  for (const line of stdout.split("\n")) {
-    const tm = line.match(/pts_time:([0-9.]+)/);
-    if (tm) { t = Number(tm[1]); continue; }
-    const em = line.match(/YAVG=([0-9.]+)/);
-    if (em && t != null) samples.push({ t, e: Number(em[1]) });
-  }
-  return { samples, duration };
-}
-
-// Highest-energy sample within [lo, hi]; null if none meet the motion floor.
-function motionPeak(samples, lo, hi) {
-  let best = null;
-  for (const s of samples) {
-    if (s.t < lo || s.t > hi) continue;
-    if (!best || s.e > best.e) best = s;
-  }
-  return best && best.e >= MOTION_MIN_ENERGY ? best.t : null;
-}
-
-// Coarse semantic estimate: roughly when does Gemini see the paw hit the button?
-// Used only as a sanity window around the precise audio onset.
+// Ask Gemini to watch the generated video and identify the frame where the paw
+// makes contact with the button. Returns seconds as a float, or null on failure.
 async function detectPressVisual(videoBase64, key) {
   try {
     const r = await fetch(`${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${key}`, {
@@ -172,12 +125,8 @@ async function detectPressVisual(videoBase64, key) {
   }
 }
 
-// Gemini is the trusted anchor. Refine to a nearby motion peak only when it
-// closely agrees (snaps to the exact contact frame); never let motion override.
-function resolvePress(samples, visual) {
+function resolvePress(visual) {
   if (visual == null) return { pressSeconds: DEFAULT_PRESS_SECONDS, source: "default" };
-  const peak = motionPeak(samples, visual - GEMINI_WINDOW, visual + GEMINI_WINDOW);
-  if (peak != null) return { pressSeconds: peak, source: "visual+motion" };
   return { pressSeconds: visual, source: "visual" };
 }
 
@@ -256,19 +205,18 @@ export default async function handler(req, res) {
     const videoBuffer = Buffer.from(await vresp.arrayBuffer());
     await writeFile(inPath, videoBuffer);
 
-    // 2. In parallel: generate the voice, get the coarse visual press estimate,
-    //    detect per-frame motion, and resolve the click asset.
-    const [voiceBuffer, visual, { samples, duration }, clickPath] = await Promise.all([
+    // 2. In parallel: generate the voice, get Gemini's visual press estimate,
+    //    get video duration, and resolve the click asset.
+    const [voiceBuffer, visual, videoLen, clickPath] = await Promise.all([
       generateVoice(voiceId, compliment, elevenKey),
       detectPressVisual(videoBuffer.toString("base64"), googleKey),
-      detectMotion(inPath),
+      mediaDuration(inPath).then(d => d || 8),
       resolveClickPath(),
     ]);
     await writeFile(voicePath, voiceBuffer);
 
-    // 3. Resolve the press moment from the two signals.
-    const videoLen = duration || (await mediaDuration(inPath)) || 8;
-    let { pressSeconds, source } = resolvePress(samples, visual);
+    // 3. Resolve the press moment from Gemini's estimate (or fixed fallback).
+    let { pressSeconds, source } = resolvePress(visual);
     pressSeconds = Math.min(Math.max(pressSeconds, PRESS_MIN_SECONDS), videoLen - 0.1);
     console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} (visual=${visual})`);
 
