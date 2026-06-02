@@ -533,6 +533,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           position: relative;
           width: 120px; height: 120px;
           display: flex; align-items: center; justify-content: center;
+          margin-top: 28px;
         }
         .cat-ring-wrap::after {
           content: "";
@@ -543,11 +544,11 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             from 0deg,
             transparent 0%,
             transparent 15%,
-            rgba(10,10,10,0.08) 25%,
-            rgba(10,10,10,0.25) 40%,
-            #0A0A0A 65%,
-            rgba(10,10,10,0.25) 80%,
-            rgba(10,10,10,0.08) 88%,
+            rgba(255,255,255,0.15) 25%,
+            rgba(255,255,255,0.5) 40%,
+            #ffffff 65%,
+            rgba(255,255,255,0.5) 80%,
+            rgba(255,255,255,0.15) 88%,
             transparent 95%,
             transparent 100%
           );
@@ -618,6 +619,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           color: #0A0A0A;
           text-align: center;
           min-height: 24px;
+          margin-top: 8px;
         }
         .gen-elapsed {
           font-size: 11px;

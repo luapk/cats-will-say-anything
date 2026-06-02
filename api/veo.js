@@ -26,8 +26,11 @@ function buildPrompt(voiceStyle, compliment) {
     `branded with the Temptations logo. The walk is unhurried — almost insulting in its ` +
     `lack of urgency. The cat stops directly in front of the button, looks at camera ` +
     `for one beat, then presses the button firmly with one paw using minimum effort. ` +
-    `Immediately after the press, a voice — ${voiceStyle} — says: "${compliment}" ` +
-    `The cat's expression throughout is one of profound, barely-concealed contempt. ` +
+    `The button click sound plays. Then — only after the button is pressed — ` +
+    `a voice-over in ${voiceStyle} says: "${compliment}" ` +
+    `While the voice-over plays, the cat turns its head and stares directly into the camera ` +
+    `with a expression of deep, grumpy contempt — unblinking, utterly unbothered. ` +
+    `No voice plays before the button press. Silence before the press, voice after. ` +
     `Clean yellow studio background, cinematic lighting, shallow depth of field, ` +
     `9:16 portrait, 8 seconds.`
   );
