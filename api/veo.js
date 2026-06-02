@@ -105,7 +105,7 @@ function buildPrompt(voiceStyle, compliment, elevenLabs) {
     `\n\n` +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
     `NO TEXT ON SCREEN: Do not render any words, captions, subtitles, labels, or text of any kind burned into the video frames. No on-screen text whatsoever. ` +
-    `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
+    `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait.`
   );
 }
 

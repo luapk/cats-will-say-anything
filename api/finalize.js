@@ -122,6 +122,7 @@ export default async function handler(req, res) {
 
   const id = randomBytes(8).toString("hex");
   const inPath = join(tmpdir(), `${id}-in.mp4`);
+  const extPath = join(tmpdir(), `${id}-ext.mp4`);
   const voicePath = join(tmpdir(), `${id}-vo.mp3`);
   const outPath = join(tmpdir(), `${id}-out.mp4`);
 
@@ -143,17 +144,27 @@ export default async function handler(req, res) {
     const voiceMs = Math.round((pressSeconds + VOICE_GAP_SECONDS) * 1000);
     console.log(`[finalize] voice "${voice}" — click @ ${clickMs}ms, VO @ ${voiceMs}ms`);
 
-    // 4. Bake audio from scratch. We DISCARD Veo's unreliable generated audio
-    //    (it produces stray clicks at the wrong times) and build a clean track:
-    //    a synthesized button click at the detected press, then the voice just
-    //    after it. Because both are keyed to the same moment, the VO can never
-    //    play before the click.
+    // 4a. Extend the Veo clip to 12 seconds by freeze-holding the last frame.
+    //     Veo caps at 8s, so without this the VO gets cut off mid-sentence.
+    //     ultrafast preset keeps re-encode time under ~3s on Vercel.
+    await run(ffmpegPath, [
+      "-y", "-i", inPath,
+      "-vf", "tpad=stop_duration=4:stop_mode=clone",
+      "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+      "-an",
+      extPath,
+    ]);
+
+    // 4b. Bake audio from scratch onto the extended clip. We DISCARD Veo's
+    //     unreliable generated audio (stray clicks) and build a clean track:
+    //     a synthesized button click at the detected press, then the boosted VO
+    //     just after. Both are keyed to the same moment so VO can never precede click.
     //
-    //    input 0 = video (audio ignored), 1 = voice mp3,
-    //    2 = synthesized click (short decaying noise burst via lavfi).
+    //     input 0 = extended video (no audio), 1 = voice mp3,
+    //     2 = synthesized click (short decaying noise burst via lavfi).
     const args = [
       "-y",
-      "-i", inPath,
+      "-i", extPath,
       "-i", voicePath,
       "-f", "lavfi", "-t", "0.2", "-i", "aevalsrc=0.6*random(0)*exp(-45*t):s=44100",
       "-filter_complex",
@@ -180,7 +191,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   } finally {
     // Best-effort temp cleanup.
-    for (const p of [inPath, voicePath, outPath]) {
+    for (const p of [inPath, extPath, voicePath, outPath]) {
       unlink(p).catch(() => {});
     }
   }
