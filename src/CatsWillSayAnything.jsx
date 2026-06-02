@@ -94,6 +94,7 @@ export default function CatsWillSayAnything() {
   const [msgIndex, setMsgIndex] = useState(0);
   const [genMsgIndex, setGenMsgIndex] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [notCatError, setNotCatError] = useState(false);
   const [revealStep, setRevealStep] = useState(0);
   const fileInputRef = useRef(null);
   const msgIntervalRef = useRef(null);
@@ -142,6 +143,7 @@ export default function CatsWillSayAnything() {
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     stopAudio();
+    setNotCatError(false);
     setCatImage(URL.createObjectURL(file));
 
     // Compress to max 1024px and JPEG 0.82 before storing — keeps payload
@@ -174,7 +176,12 @@ export default function CatsWillSayAnything() {
     stopAudio();
     setScreen("analyzing");
     try {
-      const prompt = `You are analysing a cat photo for the "Cats Will Say Anything" Temptations cat treats campaign.
+      const prompt = `You are analysing a photo for the "Cats Will Say Anything" Temptations cat treats campaign.
+
+FIRST: Check whether the image primarily features a cat. If the main subject is NOT a cat — for example it is a human, a dog, another animal, an object, or a scene with no cat — respond ONLY with this exact JSON and nothing else:
+{"error": "not_a_cat"}
+
+If the image DOES primarily feature a cat, continue:
 
 Look closely at the cat's fur, eyes, expression, posture, and overall energy. Make specific visual observations, then assign ONE of these three voice archetypes that best fits what you see:
 
@@ -206,6 +213,11 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
+      if (parsed.error === "not_a_cat") {
+        setScreen("upload");
+        setNotCatError(true);
+        return;
+      }
       setAnalysis(parsed);
       setScreen("revealed");
     } catch {
@@ -288,6 +300,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
     setImageBase64(null);
     setAnalysis(null);
     setGeneratingError("");
+    setNotCatError(false);
     setRevealStep(0);
     setElapsedSeconds(0);
     setGeneratingStep("");
@@ -821,6 +834,22 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
               onChange={(e) => handleFile(e.target.files[0])}
               style={{ display: "none" }}
             />
+
+            {notCatError && (
+              <div style={{
+                background: "#0A0A0A",
+                color: "#FFD600",
+                borderRadius: 12,
+                padding: "12px 16px",
+                width: "100%",
+                fontSize: 13,
+                fontWeight: 800,
+                textAlign: "center",
+                lineHeight: 1.5,
+              }}>
+                🐾 That doesn't look like a cat! Please upload a photo where a cat is the main subject.
+              </div>
+            )}
 
             {catImage ? (
               <button className="btn-red pulsing" onClick={analyzeCat}>
