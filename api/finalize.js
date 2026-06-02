@@ -82,6 +82,15 @@ async function detectPressSeconds(videoBase64, key) {
   }
 }
 
+// Per-persona voice settings. Barry White is working well at defaults;
+// French and Scottish need style boosted to 0.7 to pull the accent out.
+const VOICE_SETTINGS = {
+  "hILdTfuUq4LRBMrxHERr": { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },  // Barry White Core
+  "FL0d5832ACnJkBaedeKX": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // French Smooth Talker
+  "KJEm37Eur9OPxG4df2Cu": { stability: 0.5, similarity_boost: 0.75, style: 0.7, use_speaker_boost: true },  // Early 2000s Sean Connery
+};
+const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true };
+
 // Generate the voiceover MP3 from the persona's fixed ElevenLabs voice ID.
 async function generateVoice(voiceId, text, apiKey) {
   const r = await fetch(`${ELEVEN_BASE}/${voiceId}`, {
@@ -94,7 +103,7 @@ async function generateVoice(voiceId, text, apiKey) {
     body: JSON.stringify({
       text,
       model_id: ELEVEN_MODEL,
-      voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+      voice_settings: VOICE_SETTINGS[voiceId] || DEFAULT_VOICE_SETTINGS,
     }),
   });
   if (!r.ok) {
