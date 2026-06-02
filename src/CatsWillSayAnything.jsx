@@ -58,12 +58,16 @@ const ANALYZING_MESSAGES = [
 ];
 
 const GENERATING_STEPS = [
-  "Directing your cat...",
-  "Generating film + voice...",
-  "Cat is approaching the button...",
-  "Paw contact imminent...",
-  "Rendering your masterpiece...",
-  "Almost there...",
+  "Casting call issued. Cat unimpressed.",
+  "Wardrobe fitting. Bow tie rejected.",
+  "Director's briefing. Entirely ignored.",
+  "Craft services negotiation underway.",
+  "Cat refusing to hit their mark.",
+  "Method acting prep. Still judging.",
+  "Scene 1, take 23. Paw descending.",
+  "Lighting adjusted. Cat unmoved.",
+  "The button has been located.",
+  "Post-production. Almost in the can.",
 ];
 
 export default function CatsWillSayAnything() {
@@ -522,19 +526,18 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         .play-btn:hover { background: #0A0A0A; color: white; }
         .play-btn.playing { background: #E8001C; border-color: #E8001C; color: white; }
 
-        .dot {
-          width: 9px; height: 9px;
-          border-radius: 50%;
-          background: #E8001C;
-          animation: dotBounce 1.2s ease infinite;
+        .cat-ring-wrap {
+          position: relative;
+          width: 120px; height: 120px;
+          display: flex; align-items: center; justify-content: center;
         }
-
-        .spinner {
-          width: 40px; height: 40px;
-          border: 4px solid rgba(0,0,0,0.15);
-          border-top-color: #0A0A0A;
-          border-radius: 50%;
-          animation: spin 0.9s linear infinite;
+        .cat-ring {
+          position: absolute; top: 0; left: 0;
+          width: 120px; height: 120px;
+          animation: spin 2s linear infinite;
+        }
+        .cat-ring-arc {
+          transform-origin: center;
         }
 
         .screen {
@@ -762,18 +765,22 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* ── GENERATING ── */}
         {screen === "generating" && (
-          <div className="screen fade-up" style={{ alignItems: "center", gap: "20px" }}>
-            {catImage && (
-              <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
-            )}
-            <div className="spinner" />
-            <p className="gen-step">{generatingStep || GENERATING_STEPS[genMsgIndex]}</p>
-            <p className="gen-hint">This takes 3–8 minutes. Don't close the tab.</p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {[0, 1, 2].map(i => (
-                <div key={i} className="dot" style={{ animationDelay: `${i * 0.18}s` }} />
-              ))}
+          <div className="screen fade-up" style={{ alignItems: "center", gap: "24px" }}>
+            <div className="cat-ring-wrap">
+              {catImage && (
+                <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
+              )}
+              <svg className="cat-ring" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="5" />
+                <circle cx="60" cy="60" r="54" fill="none" stroke="#0A0A0A" strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray="339.3"
+                  strokeDashoffset="254.5"
+                  className="cat-ring-arc" />
+              </svg>
             </div>
+            <p className="gen-step">{generatingStep || GENERATING_STEPS[genMsgIndex]}</p>
+            <p className="gen-hint">This takes a few minutes. Don't close the tab.</p>
           </div>
         )}
 
