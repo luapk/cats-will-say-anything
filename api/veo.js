@@ -21,20 +21,25 @@ function extractErrorMessage(data) {
 
 function buildPrompt(voiceStyle, compliment) {
   return (
-    `The cat from the reference photo walks slowly across a bright solid yellow background ` +
-    `toward a large novelty button on the floor. The button has a wide rounded red base ` +
-    `with a yellow dome-shaped top cap, and a small white cloud-shaped badge in the centre ` +
-    `that reads "Temptations" in black lettering. ` +
-    `The cat's walk is unhurried — almost insulting in its lack of urgency. ` +
-    `The cat stops directly in front of the button, looks at camera for one beat, ` +
-    `then presses the yellow dome firmly with one paw using minimum effort. ` +
-    `The button makes a satisfying click. Then — only after the button is pressed — ` +
-    `a voice-over in ${voiceStyle} says: "${compliment}" ` +
-    `While the voice-over plays, the cat turns its head and stares directly into the camera ` +
-    `with an expression of deep, grumpy contempt — unblinking, utterly unbothered. ` +
-    `No voice plays before the button press. Silence before the press, voice after. ` +
-    `Clean yellow studio background, cinematic lighting, shallow depth of field, ` +
-    `9:16 portrait, 8 seconds.`
+    `SUBJECT REFERENCE: The attached image is a character reference — not the first frame. ` +
+    `Generate a video featuring a cat that matches this specific cat as closely as possible: ` +
+    `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
+    `This cat is the star of the video. ` +
+    `\n\n` +
+    `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
+    `The button is a novelty cat-treat button: chunky rounded red base, yellow dome top, ` +
+    `white cloud-shaped badge in the centre with "Temptations" written in black. ` +
+    `Reproduce this button design faithfully. ` +
+    `\n\n` +
+    `ACTION — follow this exact sequence: ` +
+    `(1) The video opens with the cat already positioned in front of the button. ` +
+    `Without hesitation, it presses the yellow dome firmly with one paw. Minimum effort. Maximum contempt. ` +
+    `(2) The instant the button is pressed, a voice-over begins — ${voiceStyle} — saying: "${compliment}" ` +
+    `(3) While the voice-over plays, the cat slowly turns its head and holds a direct, unblinking gaze into the camera. ` +
+    `The expression is deeply, profoundly grumpy. Utterly unbothered. Contempt at rest. ` +
+    `\n\n` +
+    `AUDIO RULE: Complete silence before the button press. Voice starts only on the press. No exceptions. ` +
+    `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
 }
 
