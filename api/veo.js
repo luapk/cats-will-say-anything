@@ -46,8 +46,9 @@ const BUTTON_BIBLE = JSON.stringify({
 
 function buildPrompt(voiceStyle, compliment) {
   return (
-    `SUBJECT REFERENCE: The attached image is a character reference ONLY — it is NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `Generate a video featuring a cat that matches this specific cat as closely as possible: ` +
+    `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
+    `The FIRST reference image is the CAT (the star). The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
+    `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
     `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
     `This cat is the star of the video. ` +
     `\n\n` +
@@ -55,7 +56,7 @@ function buildPrompt(voiceStyle, compliment) {
     `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
     `\n\n` +
     `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
-    `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video, exactly matching this continuity-bible JSON spec: ` +
+    `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video. The button reference image is the authoritative source for its look; this continuity-bible JSON spec describes the same prop: ` +
     `${BUTTON_BIBLE}. ` +
     `The button sits directly on the yellow floor. Its surface is shiny plastic with glossy specular highlights. ` +
     `\n\n` +
@@ -107,22 +108,34 @@ export default async function handler(req, res) {
 
   // ── POST: start generation ──────────────────────────────────────────────
   if (req.method === "POST") {
-    const { imageBase64, imageMimeType = "image/jpeg", voiceStyle, compliment } = req.body || {};
+    const {
+      imageBase64, imageMimeType = "image/jpeg", voiceStyle, compliment,
+      buttonBase64, buttonMimeType = "image/png",
+    } = req.body || {};
     if (!imageBase64 || !voiceStyle || !compliment) {
       return res.status(400).json({ error: "imageBase64, voiceStyle, and compliment are required" });
     }
 
-    // Primary: use the cat photo as an ASSET reference image (Veo 3.1 "ingredients
-    // to video"). This preserves the cat's appearance WITHOUT pinning it as frame 0.
+    // Primary: use ASSET reference images (Veo 3.1 "ingredients to video").
+    // referenceImages[0] = the cat photo (preserves the cat's appearance WITHOUT
+    // pinning it as frame 0). referenceImages[1] = the Temptations button render,
+    // so the prop renders consistently instead of relying on the text spec alone.
     // Fallback: if the API rejects reference images (preview support is patchy on the
     // Gemini Developer endpoint), retry with the legacy image-to-video first-frame field.
+    const referenceImages = [{
+      image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
+      referenceType: "asset",
+    }];
+    if (buttonBase64) {
+      referenceImages.push({
+        image: { bytesBase64Encoded: buttonBase64, mimeType: buttonMimeType },
+        referenceType: "asset",
+      });
+    }
     const refBody = {
       instances: [{
         prompt: buildPrompt(voiceStyle, compliment),
-        referenceImages: [{
-          image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
-          referenceType: "asset",
-        }],
+        referenceImages,
       }],
       parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
     };
