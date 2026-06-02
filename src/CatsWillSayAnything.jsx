@@ -141,6 +141,30 @@ export default function CatsWillSayAnything() {
 
   const stopAudio = () => {};
 
+  // Fetch the Temptations button render once and cache its base64 — passed to
+  // Veo as a second asset reference so the prop renders consistently.
+  const buttonRefCache = useRef(null);
+  const getButtonBase64 = async () => {
+    if (buttonRefCache.current) return buttonRefCache.current;
+    try {
+      const resp = await fetch("/button.png");
+      const blob = await resp.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      buttonRefCache.current = {
+        base64: String(dataUrl).split(",")[1],
+        mimeType: blob.type || "image/png",
+      };
+      return buttonRefCache.current;
+    } catch {
+      return null; // non-fatal — Veo falls back to the text-only button spec
+    }
+  };
+
   const handleFile = (file) => {
     if (!file || !file.type.startsWith("image/")) return;
     stopAudio();
@@ -263,6 +287,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
       // Start generation (video + audio baked in one call)
       setGeneratingStep("On set. Briefing the cat...");
+      const buttonRef = await getButtonBase64();
       const startResp = await fetch("/api/veo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -271,6 +296,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           imageMimeType,
           voiceStyle: vd.voiceStyle,
           compliment,
+          buttonBase64: buttonRef?.base64,
+          buttonMimeType: buttonRef?.mimeType,
         }),
       });
       const startData = await startResp.json();
