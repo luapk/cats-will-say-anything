@@ -117,7 +117,7 @@ export default function CatsWillSayAnything() {
       }, 22000);
       loaderImgIntervalRef.current = setInterval(() => {
         setLoaderImgIndex(prev => prev + 1);
-      }, 18000);
+      }, 5000);
     }
     return () => {
       clearInterval(genMsgIntervalRef.current);
@@ -801,7 +801,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* ── GENERATING ── */}
         {screen === "generating" && (() => {
-          const LOADER_STILLS = ["/director.png", "/camera.png", "/boom.png"];
+          const LOADER_STILLS = ["/director.png", "/clapper.png", "/boom.png"];
           const phase = loaderImgIndex % 4;
           const isUserPhoto = phase === 3;
           const imgSrc = isUserPhoto ? catImage : LOADER_STILLS[phase];

@@ -144,9 +144,6 @@ export default function SharePage() {
         .sp-video-wrap {
           width: 100%;
           max-width: 420px;
-          background: #111;
-          border-radius: 16px;
-          overflow: hidden;
         }
         .sp-video {
           width: 100%;
