@@ -36,13 +36,6 @@ export default function SharePage() {
   const [copiedPlatform, setCopiedPlatform] = useState(null);
   const videoRef = useRef(null);
 
-  // Skip the first ~12 frames (0.5s) to avoid the static reference image
-  // that Veo places at frame 0 when given a subject reference photo.
-  const skipFirstFrame = () => {
-    const v = videoRef.current;
-    if (v && v.currentTime < 0.5) v.currentTime = 0.5;
-  };
-
   const copyLink = async (platform) => {
     try {
       await navigator.clipboard.writeText(window.location.href);
@@ -268,8 +261,6 @@ export default function SharePage() {
             controls
             playsInline
             autoPlay
-            onLoadedMetadata={skipFirstFrame}
-            onCanPlay={skipFirstFrame}
           />
         </div>
 

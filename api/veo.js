@@ -19,20 +19,45 @@ function extractErrorMessage(data) {
   return JSON.stringify(e);
 }
 
+// Continuity-bible description of the Temptations button. Kept verbatim across
+// every generation so the prop renders identically film to film.
+const BUTTON_BIBLE = JSON.stringify({
+  object: "Temptations push-button (two-piece actuator + base)",
+  overall:
+    "A stylized, glossy, 3D-rendered push-button assembly. Two pieces: a vibrant yellow central actuator seated inside a bulbous orange base. Reads as a chunky, oversized novelty 'easy button'.",
+  actuator_top_button: {
+    shape: "Flat-topped cylinder with gently rounded upper edges; sits raised/elevated in the unpressed state.",
+    color: "Solid bright yellow, smooth semi-gloss plastic finish with a subtle soft highlight running along the rounded top edge.",
+    logo: {
+      text: "Temptations",
+      typeface: "Black stylized italic cursive script",
+      badge: "Text sits entirely inside a solid white scalloped cloud-like shape, bordered by a thin yellow outline that separates it slightly from the yellow surface.",
+      placement: "Centered flat on the top face of the yellow cap.",
+    },
+    position: "Centered inside the orange housing, noticeably elevated to indicate an unpressed state.",
+  },
+  base_housing: {
+    shape: "Smooth convex flattened-sphere / flared-donut form, widest at its horizontal equator, tapering inward to a flat bottom and curving inward at the top to seamlessly frame the yellow button.",
+    color: "Highly saturated vibrant orange.",
+    finish: "High-gloss plastic. Prominent curved white specular highlight on the mid-to-upper-right quadrant (strong key light from above-right); softer diffuse highlight along the upper-left curve.",
+  },
+  scale: "Larger than the cat's paw — a chunky, satisfying prop the cat can press with one paw.",
+});
+
 function buildPrompt(voiceStyle, compliment) {
   return (
-    `SUBJECT REFERENCE: The attached image is a character reference — not the first frame. ` +
+    `SUBJECT REFERENCE: The attached image is a character reference ONLY — it is NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
     `Generate a video featuring a cat that matches this specific cat as closely as possible: ` +
     `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
     `This cat is the star of the video. ` +
     `\n\n` +
+    `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
+    `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
+    `\n\n` +
     `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
-    `THE BUTTON — reproduce faithfully from this description: a wide, low, dome-shaped base ` +
-    `in terracotta-orange, very rounded at the edges, like a large flattened dome or thick puck. ` +
-    `Sitting centred on top is a smaller bright yellow cap — a flattened disc with a domed top, ` +
-    `noticeably smaller in diameter than the base beneath it. ` +
-    `On the top of the yellow cap is a white cloud-shaped logo sticker with a yellow outline, ` +
-    `reading "Temptations" in bold italic black script. The button sits directly on the yellow floor. ` +
+    `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video, exactly matching this continuity-bible JSON spec: ` +
+    `${BUTTON_BIBLE}. ` +
+    `The button sits directly on the yellow floor. Its surface is shiny plastic with glossy specular highlights. ` +
     `\n\n` +
     `STRICT AUDIO TIMELINE — there are exactly three audio phases, in this precise order: ` +
     `\n` +
