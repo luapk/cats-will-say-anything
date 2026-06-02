@@ -232,7 +232,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         const secs = elapsed % 60;
         const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
         setGeneratingStep(`Generating film... ${timeStr}`);
-        const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}`);
+        const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}&t=${Date.now()}`);
         const pollData = await pollResp.json();
         if (pollData.status === "done") { finalUrl = pollData.url; break; }
         if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
