@@ -10,9 +10,6 @@ const VOICES = {
     compliments: [
       "You smell... incredible. Did you roll in something dead? Be honest with me.",
       "I blinked at you. Slow. In my world, baby... that was a proposal.",
-      "Let me put my scent all over you. So the others know you're taken.",
-      "I left something by your pillow. It used to fly. Now it's yours.",
-      "You snore. Loud. Like a tiny, broken purr. And I've decided... I'm into it.",
     ]
   },
   "French Smooth Talker": {
@@ -28,7 +25,7 @@ const VOICES = {
       "I knocked your cup to the floor this morning. A gift. In France, we call this passion.",
     ]
   },
-  "Early 2000s Sean Connery": {
+  "Highland Heartthrob": {
     emoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
     toneNote: "Measured Scottish gravitas — imperious, deliberate, delivers backhanded praise like a knighthood",
     voiceDesc: "measured Scottish brogue, imperious and deliberate, delivering backhanded praise with the weight of a man who has seen far greater things",
@@ -36,7 +33,6 @@ const VOICES = {
     compliments: [
       "I have hunted many things. Birds. Moths. One unfortunate sock. None of them looked at me the way you do.",
       "You stare at the glowing box for hours. Unblinking. Patient. You would have made a passable cat.",
-      "This morning I pushed your glass from the table. That was no accident. That was devotion. Clean it up.",
       "You cannot climb. You cannot pounce. You sleep eleven hours, not sixteen. And yet. I have grown fond of you.",
       "I brought you a bird once. You screamed. We do not speak of it. But the gesture stands.",
     ]
@@ -216,9 +212,9 @@ If the image passed both checks above and primarily features a cat, assign ONE o
 
 - French Smooth Talker — assign this to cats with a SLEEK, SHORT, FINE coat and an elegant or aristocratic build (Siamese, Burmese, Oriental, Devon Rex, any lean angular cat); OR unusual, refined, or two-tone colouring that reads as fashionable; OR a sharp, pointed face with a faintly superior expression. The coat texture and face shape are the key triggers.
 
-- Early 2000s Sean Connery — assign this to cats with TABBY STRIPES, a rugged or weathered face, a stocky muscular build, or a direct confrontational stare that reads as battle-hardened rather than elegant. This is the voice for tough-looking tabbies and street cats, NOT a generic fallback for any serious-looking cat.
+- Highland Heartthrob — assign this to cats with TABBY STRIPES, a rugged or weathered face, a stocky muscular build, or a direct confrontational stare that reads as battle-hardened rather than elegant. This is the voice for tough-looking tabbies and street cats, NOT a generic fallback for any serious-looking cat.
 
-IMPORTANT: Do NOT default to Early 2000s Sean Connery just because a cat looks serious. Serious cats can be any of the three. Base the choice on fur type, coat pattern, and body shape first — those are more reliable signals than expression alone. Aim for variety: if the visual evidence equally supports two choices, pick the one that is more unexpected or funnier.
+IMPORTANT: Do NOT default to Highland Heartthrob just because a cat looks serious. Serious cats can be any of the three. Base the choice on fur type, coat pattern, and body shape first — those are more reliable signals than expression alone. Aim for variety: if the visual evidence equally supports two choices, pick the one that is more unexpected or funnier.
 
 Write 2-3 funny, specific observational sentences explaining WHY this cat matches that voice. Reference actual visual details — fur colour/texture, eye shape, posture, expression. Be affectionately cutting.
 
@@ -305,27 +301,33 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       // Clear initial step so GENERATING_STEPS cycle shows during polling
       setGeneratingStep("");
 
-      // Poll until done (max 10 min)
-      let finalUrl = null;
-      let needsVoice = false;
-      for (let i = 0; i < 120; i++) {
-        await new Promise(r => setTimeout(r, 5000));
-        setElapsedSeconds((i + 1) * 5);
-        const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}&t=${Date.now()}`);
-        const pollData = await pollResp.json();
-        if (pollData.status === "done") { finalUrl = pollData.url; needsVoice = !!pollData.needsVoice; break; }
-        if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
-      }
-      if (!finalUrl) throw new Error("Generation timed out after 10 minutes");
+      // Poll a single Veo operation until done (max 10 min).
+      const pollOp = async (op) => {
+        for (let i = 0; i < 120; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          setElapsedSeconds(prev => prev + 5);
+          const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(op)}&t=${Date.now()}`);
+          const pollData = await pollResp.json();
+          if (pollData.status === "done") return pollData;
+          if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
+        }
+        throw new Error("Generation timed out after 10 minutes");
+      };
 
-      // ElevenLabs mode: the clip is silent (click only). Add the voice now,
-      // baked in at the detected press moment.
+      // Poll main clip (8s).
+      const mainPoll = await pollOp(operationName);
+      const mainUrl = mainPoll.url;
+      const needsVoice = !!mainPoll.needsVoice;
+
+      // ElevenLabs mode: finalize generates the ending clip internally, concats,
+      // bakes click + voice, and overlays the logo.
+      let finalUrl = needsVoice ? null : mainUrl;
       if (needsVoice) {
-        setGeneratingStep("Recording the voiceover...");
+        setGeneratingStep("Filming the final scene...");
         const finResp = await fetch("/api/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: finalUrl, voice: analysis.voice, compliment }),
+          body: JSON.stringify({ videoUrl: mainUrl, voice: analysis.voice, compliment }),
         });
         const finData = await finResp.json();
         if (!finResp.ok || !finData.url) throw new Error(finData.error || "Voiceover compositing failed");
@@ -344,12 +346,13 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const low = raw.toLowerCase();
       let friendly;
       if (low.includes("likeness") || low.includes("real people") || low.includes("celebrity") || low.includes("can't create videos") || low.includes("cannot create videos")) {
-        // Veo content filter — usually a named person/celebrity in the prompt.
         friendly = `That couldn't be generated due to a content rule (often a real person's name in the styling). Please try again.\n\nDetail: ${raw}`;
       } else if (low.includes("quota") || low.includes("resource_exhausted") || low.includes("429")) {
-        // Hard quota cap — waiting won't help until it resets / billing is raised.
         friendly = `Video generation quota reached on the Google API key. This won't clear by retrying — the daily Veo quota is used up (or billing needs raising).\n\nDetail: ${raw}`;
-      } else if (low.includes("overloaded") || low.includes("unavailable") || low.includes("503") || low.includes("high demand") || low.includes("try again")) {
+      } else if (low.includes("audio for your prompt") || low.includes("issue with the audio")) {
+        // Veo audio safety filter — can be a transient false positive, safe to retry.
+        friendly = `The film studio hit a content filter on this attempt. This sometimes clears on a retry — please try again.\n\nDetail: ${raw}`;
+      } else if (low.includes("overloaded") || low.includes("unavailable") || low.includes("503") || low.includes("high demand")) {
         friendly = `The film studio is very busy right now (Veo is temporarily overloaded). Wait a moment and try again.\n\nDetail: ${raw}`;
       } else {
         friendly = raw;
@@ -635,7 +638,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         .cat-ring-wrap {
           position: relative;
-          width: 120px; height: 120px;
+          width: 162px; height: 162px;
           display: flex; align-items: center; justify-content: center;
           margin-top: 28px;
         }
@@ -933,7 +936,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           <div className="screen fade-up" style={{ alignItems: "center", gap: "20px" }}>
             <div className="cat-ring-wrap">
               {catImage && (
-                <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
+                <img src={catImage} alt="cat" className="cat-circle" style={{ width: 135, height: 135 }} />
               )}
             </div>
             <p style={{ fontSize: "17px", fontWeight: 800, color: "#0A0A0A", textAlign: "center", minHeight: "26px" }}>
@@ -1004,13 +1007,13 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                   src={imgSrc}
                   alt="loading"
                   style={isUserPhoto ? {
-                    width: 100, height: 100,
+                    width: 135, height: 135,
                     borderRadius: "50%",
                     objectFit: "cover",
                     border: "3px solid #0A0A0A",
                     animation: "loaderFade 0.4s ease forwards",
                   } : {
-                    width: 96, height: 96,
+                    width: 130, height: 130,
                     objectFit: "contain",
                     animation: "loaderFade 0.4s ease forwards",
                   }}

@@ -7,8 +7,8 @@
     "api/veo.js": { "maxDuration": 60 },
     "api/gemini.js": { "maxDuration": 30 },
     "api/finalize.js": {
-      "maxDuration": 60,
-      "includeFiles": "node_modules/ffmpeg-static/**"
+      "maxDuration": 300,
+      "includeFiles": "{node_modules/ffmpeg-static/**,public/click.mp3,public/logo.png}"
     }
   }
 }
