@@ -18,28 +18,8 @@ function extractErrorMessage(data) {
   return JSON.stringify(e);
 }
 
-// Continuity-bible description of the Temptations button.
-const BUTTON_BIBLE = JSON.stringify({
-  object: "Temptations push-button",
-  overall:
-    "Chunky glossy novelty push-button. Two pieces: a bright yellow cylindrical actuator seated flush inside a bulbous red base.",
-  actuator: {
-    shape: "Flat-topped cylinder, gently rounded upper edges; top flush with the rim of the base — never protruding above it.",
-    color: "Solid bright yellow, semi-gloss plastic.",
-    logo: {
-      text: "Temptations",
-      typeface: "Black italic cursive script",
-      badge: "Text inside a solid white scalloped cloud badge, centred on the top face.",
-    },
-    press: "Travels straight down a short distance when pressed, returns to flush resting position. Never springs up or extrudes outward.",
-  },
-  base: {
-    shape: "Flattened-sphere / flared-donut form, widest at the equator, flat bottom, curves inward at top to frame the actuator.",
-    color: "Highly saturated vivid red.",
-    finish: "High-gloss plastic, curved white specular highlight on the upper-right quadrant.",
-  },
-  scale: "~90mm wide — approximately as wide as the cat's paw is long.",
-});
+// Button size note — passed into prompt as plain text alongside the reference image.
+const BUTTON_SIZE = "approximately 90mm wide — small enough that it fits easily under a single cat paw";
 
 // Main 8s clip prompt. In ElevenLabs mode all audio vocabulary is stripped —
 // even negatives ("no meowing") trip Veo's audio safety filter.
@@ -80,18 +60,16 @@ function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
 
   return (
     `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `The FIRST reference image is the CAT (the star). The SECOND reference image is the TEMPTATIONS BUTTON prop — you MUST reproduce this button EXACTLY as it appears: same shape, same vivid red base, same yellow top cap, same white cloud logo badge, same glossy plastic finish. ` +
+    `The FIRST reference image is the CAT. The SECOND reference image is the TEMPTATIONS BUTTON — reproduce it EXACTLY as shown: same vivid red base, same yellow top cap, same white cloud logo badge, same high-gloss plastic finish. The reference image is the only authority on the button's appearance. ` +
     `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
-    `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
+    `same fur colour, markings, face shape, eye colour, coat texture, body type, and apparent age (kitten, adult, or senior). ` +
     `This cat is the star of the video. ` +
     `\n\n` +
     `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
     `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
     `\n\n` +
-    `SCENE: Bright solid yellow studio floor and background. No other objects except one button. ` +
-    `THE BUTTON — reproduce this prop FAITHFULLY and IDENTICALLY in every video. The button reference image is the authoritative source for its look; this continuity-bible JSON spec describes the same prop: ` +
-    `${BUTTON_BIBLE}. ` +
-    `The button sits directly on the yellow floor. Its yellow cap is seated FLUSH in the red base in its resting state (the reference image shows this resting, depressed-looking state) — the cap never protrudes or sticks up; pressing only pushes it a short way straight down and inward. Its surface is shiny plastic with glossy specular highlights. ` +
+    `SCENE: Bright solid yellow studio floor and background. No other objects except one Temptations button. ` +
+    `THE BUTTON sits directly on the yellow floor. It is ${BUTTON_SIZE}. Its yellow cap is seated FLUSH in the red base at rest — the cap never protrudes; pressing it only moves it a short way straight down. Match the button reference image exactly. ` +
     `\n\n` +
     audioSection +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +

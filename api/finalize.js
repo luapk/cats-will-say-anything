@@ -185,15 +185,15 @@ function buildEndingPrompt() {
     `STARTING FRAME: The provided image is the EXACT first frame of this clip. ` +
     `Match it precisely — same cat, same position, same yellow studio, same lighting. ` +
     `\n\n` +
-    `ACTION: Over the full 5 seconds, the camera executes one slow, smooth, continuous pull-back — a gentle recession away from the cat. ` +
+    `ACTION: Over the full 8 seconds, the camera executes one slow, smooth, continuous pull-back — a gentle recession away from the cat. ` +
     `The cat holds completely still, sitting upright, staring directly into the lens throughout. ` +
-    `No movement from the cat. No sudden transitions. Simply a steady, slow recession. ` +
+    `No movement from the cat. Simply a steady, slow recession that ends on a wide shot of the cat in the yellow studio. ` +
     `\n\n` +
     `SCENE: Bright solid yellow studio floor and background. Only the cat. ` +
     `\n\n` +
     `NO HUMANS: No human figures, hands, or body parts. Only the cat. ` +
     `NO TEXT ON SCREEN: No captions, labels, or text of any kind. ` +
-    `VISUAL STYLE: Cinematic, warm studio lighting, 9:16 portrait, 5 seconds.`
+    `VISUAL STYLE: Cinematic, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
 }
 
@@ -230,7 +230,7 @@ async function generateEndingClip(mainPath, googleKey) {
       prompt: buildEndingPrompt(),
       image: { bytesBase64Encoded: frameBase64, mimeType: "image/jpeg" },
     }],
-    parameters: { aspectRatio: "9:16", durationSeconds: 5, sampleCount: 1 },
+    parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
   };
   let opName;
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -241,8 +241,8 @@ async function generateEndingClip(mainPath, googleKey) {
       body: JSON.stringify(body),
     });
     const data = await r.json();
-    if (r.ok && data?.name) { opName = data.name; break; }
-    console.warn(`[finalize] ending Veo start attempt ${attempt + 1} failed:`, JSON.stringify(data).slice(0, 200));
+    if (r.ok && data?.name) { opName = data.name; console.log("[finalize] ending Veo job started:", opName); break; }
+    console.warn(`[finalize] ending Veo start attempt ${attempt + 1} failed HTTP ${r.status}:`, JSON.stringify(data).slice(0, 300));
     if (r.status !== 429 && r.status !== 503) return null;
   }
   if (!opName) return null;
