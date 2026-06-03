@@ -186,8 +186,9 @@ function buildEndingPrompt() {
     `Match it precisely — same cat, same position, same yellow studio, same lighting. ` +
     `\n\n` +
     `ACTION: Over the full 8 seconds, the camera executes one slow, smooth, continuous pull-back — a gentle recession away from the cat. ` +
-    `The cat holds completely still, sitting upright, staring directly into the lens throughout. ` +
-    `No movement from the cat. Simply a steady, slow recession that ends on a wide shot of the cat in the yellow studio. ` +
+    `As the camera pulls back, the cat's expression shifts to sheepish and mildly embarrassed — ears slightly back, eyes averted, chin tucked, as if quietly regretting what the button just said. ` +
+    `In the final 2 seconds, as the wide shot settles, the cat gives one slow, dismissive flick of its tail. ` +
+    `Simply a steady, slow recession that ends on a wide shot of the sheepish cat in the yellow studio. ` +
     `\n\n` +
     `SCENE: Bright solid yellow studio floor and background. Only the cat. ` +
     `\n\n` +
