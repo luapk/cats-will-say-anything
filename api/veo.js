@@ -1,26 +1,49 @@
 // Veo 3.1 — image-to-video.
 // POST  { imageBase64, imageMimeType, voiceStyle, compliment }  → { operationName }
+// POST  { endingFor: videoUrl }  → { operationName }  (extract last frame → 5s ending clip)
 // GET   ?op={operationName} → { status: "pending"|"done"|"failed", url?, error? }
 
-import { put, list } from "@vercel/blob";
+import { put } from "@vercel/blob";
 import { randomBytes } from "crypto";
+import { execFile } from "child_process";
+import { writeFile, readFile, unlink } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+import ffmpegPath from "ffmpeg-static";
 
 const VEO_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const VEO_MODEL = "veo-3.1-generate-preview";
+
+// execFile that rejects on non-zero exit.
+function run(bin, args) {
+  return new Promise((resolve, reject) => {
+    execFile(bin, args, { maxBuffer: 1024 * 1024 * 64 }, (err, stdout, stderr) => {
+      if (err) return reject(new Error(`${err.message}\n${stderr}`));
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+// execFile that never rejects — used for ffmpeg probe runs.
+function capture(bin, args) {
+  return new Promise((resolve) => {
+    execFile(bin, args, { maxBuffer: 1024 * 1024 * 64 }, (err, stdout, stderr) => {
+      resolve({ stdout: stdout || "", stderr: stderr || "" });
+    });
+  });
+}
 
 // Robustly turn any Google error response shape into a plain string.
 function extractErrorMessage(data) {
   const e = data?.error;
   if (!e) return JSON.stringify(data);
   if (typeof e === "string") return e;
-  // e.message can be null on some Google error shapes — fall through to status/details
   const msg = e.message || e.status || e.code;
   if (msg) return String(msg);
   return JSON.stringify(e);
 }
 
-// Continuity-bible description of the Temptations button. Kept verbatim across
-// every generation so the prop renders identically film to film.
+// Continuity-bible description of the Temptations button.
 const BUTTON_BIBLE = JSON.stringify({
   object: "Temptations push-button",
   overall:
@@ -43,32 +66,15 @@ const BUTTON_BIBLE = JSON.stringify({
   scale: "~90mm wide — approximately as wide as the cat's paw is long.",
 });
 
-// Five distinct closing beats for the last ~1.5–2s. Chosen SEQUENTIALLY across
-// all films (not per-user, not random) via a shared counter in Blob storage, so
-// consecutive generations rotate through the full set.
-const ENDINGS = [
-  // 0 — crash zoom (the original)
-  `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. `,
-  // 1 — wide pull-back, patient
-  `FINAL SHOT (last 1.5–2 seconds): The camera pulls back to a wide shot, the cat now small and centred in the vast empty yellow studio, sitting bolt upright and perfectly still, paws together, waiting with infinite patience. Hold on this composed wide image as the clip ends. `,
-  // 2 — mortified
-  `FINAL SHOT (last 1.5–2 seconds): The cat suddenly looks mortified — ears flattening back, eyes darting away from the lens, head shrinking down between the shoulders, deeply embarrassed by what was just said. Hold on this sheepish, cringing expression as the clip ends. `,
-  // 3 — smug
-  `FINAL SHOT (last 1.5–2 seconds): The cat gives one slow, supremely self-satisfied blink directly down the lens, chin lifting slightly, utterly pleased with itself. Hold on this smug, knowing expression as the clip ends. `,
-  // 4 — unbothered exit
-  `FINAL SHOT (last 1.5–2 seconds): The cat dismissively breaks eye contact, turns its head away and begins to stroll out of frame, tail flicking once, completely done with you. Hold on the emptying frame as the clip ends. `,
-];
-
-function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
+// Main 8s clip prompt. In ElevenLabs mode all audio vocabulary is stripped —
+// even negatives ("no meowing") trip Veo's audio safety filter.
+// The clip ends on a static deadpan hold; the second clip provides the visual ending.
+function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
   const audioSection = elevenLabs
     ? (
-      // ElevenLabs mode: purely visual action description — zero audio vocabulary.
-      // Any word relating to sound (meow, click, voice, vocalise, silence, noise)
-      // triggers Veo's audio safety filter even as a negative instruction.
-      // finalize.js replaces Veo's audio track entirely anyway.
       `ACTION — CRITICAL: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw back. ONE depression only — no second tap, no repeated pawing, no returning to the button. The cat's jaw remains closed and its face stays neutral throughout. ` +
       `\n\n` +
-      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera — until the final shot below takes over. ` +
+      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera. Hold this stare until the clip ends. ` +
       `\n\n`
     )
     : (
@@ -113,37 +119,49 @@ function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
     `The button sits directly on the yellow floor. Its yellow cap is seated FLUSH in the red base in its resting state (the reference image shows this resting, depressed-looking state) — the cap never protrudes or sticks up; pressing only pushes it a short way straight down and inward. Its surface is shiny plastic with glossy specular highlights. ` +
     `\n\n` +
     audioSection +
-    ending +
-    `\n\n` +
     `NO HUMANS: Do not show any human, person, human hands, human body parts, or human figures anywhere in the video. Only the cat and the button. ` +
     `NO TEXT ON SCREEN: Do not render any words, captions, subtitles, labels, or text of any kind burned into the video frames. No on-screen text whatsoever. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
 }
 
-// Sequential ending rotation, shared across all films via a Blob counter.
-// Reads the current count, returns count % ENDINGS.length, and persists the
-// incremented count (fire-and-forget). Under rare concurrent writes a number may
-// repeat — harmless for this use. Falls back to a random ending if Blob is down.
-const ENDING_COUNTER_KEY = "state/ending-counter.json";
+// Ending clip prompt (5s). Uses the last frame of clip 1 as first frame via the
+// image field. Pure visual — no audio vocabulary anywhere.
+function buildEndingPrompt() {
+  return (
+    `STARTING FRAME: The provided image is the EXACT first frame of this clip. ` +
+    `Match it precisely — same cat, same position, same yellow studio, same lighting. ` +
+    `\n\n` +
+    `ACTION: Over the full 5 seconds, the camera executes one slow, smooth, continuous pull-back — a gentle zoom out away from the cat. ` +
+    `The cat holds completely still, sitting upright, staring directly into the lens throughout. ` +
+    `No movement from the cat. No camera cuts or sudden transitions. Simply a steady, slow recession. ` +
+    `\n\n` +
+    `SCENE: Bright solid yellow studio floor and background. Only the cat — the cat is the only subject. ` +
+    `\n\n` +
+    `NO HUMANS: No human figures, hands, or body parts. Only the cat. ` +
+    `NO TEXT ON SCREEN: No captions, labels, or text of any kind. ` +
+    `VISUAL STYLE: Cinematic, warm studio lighting, 9:16 portrait, 5 seconds.`
+  );
+}
 
-async function nextEndingIndex() {
+// Extract the last frame of a video as JPEG base64.
+async function extractLastFrame(videoPath) {
+  const { stderr } = await capture(ffmpegPath, ["-hide_banner", "-i", videoPath]);
+  const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  if (!m) throw new Error("Could not parse video duration for last-frame extraction");
+  const dur = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+  const seekTo = Math.max(0, dur - 0.15).toFixed(3);
+
+  const framePath = join(tmpdir(), `${randomBytes(4).toString("hex")}-lastframe.jpg`);
   try {
-    let count = 0;
-    const { blobs } = await list({ prefix: ENDING_COUNTER_KEY });
-    if (blobs[0]) {
-      const r = await fetch(blobs[0].url, { cache: "no-store" });
-      if (r.ok) count = Number((await r.json())?.count) || 0;
-    }
-    const index = count % ENDINGS.length;
-    put(ENDING_COUNTER_KEY, JSON.stringify({ count: count + 1 }), {
-      access: "public", addRandomSuffix: false, allowOverwrite: true,
-      contentType: "application/json", cacheControlMaxAge: 0,
-    }).catch((e) => console.error("[veo] ending counter write failed:", e.message));
-    return index;
-  } catch (e) {
-    console.error("[veo] ending counter read failed, using random:", e.message);
-    return Math.floor(Math.random() * ENDINGS.length);
+    await run(ffmpegPath, [
+      "-y", "-ss", seekTo, "-i", videoPath,
+      "-vframes", "1", "-q:v", "3", "-f", "image2", framePath,
+    ]);
+    const buf = await readFile(framePath);
+    return buf.toString("base64");
+  } finally {
+    unlink(framePath).catch(() => {});
   }
 }
 
@@ -158,8 +176,6 @@ function extractVideoUrl(response) {
   return null;
 }
 
-// When an operation is done but has no video, Veo usually filtered the output.
-// Pull out any RAI/filter reason so we can report it instead of a generic message.
 function extractFilterReason(response) {
   const gvr = response?.generateVideoResponse || response;
   const count = gvr?.raiMediaFilteredCount ?? response?.raiMediaFilteredCount;
@@ -183,29 +199,63 @@ export default async function handler(req, res) {
     const {
       imageBase64, imageMimeType = "image/jpeg", voiceStyle, compliment,
       buttonBase64, buttonMimeType = "image/png",
+      endingFor, // URL of clip 1 → extract last frame → start 5s ending clip
     } = req.body || {};
+
+    // ── Ending clip mode ──────────────────────────────────────────────────
+    if (endingFor) {
+      console.log("[veo POST] ending mode: downloading clip 1 to extract last frame");
+      const id = randomBytes(6).toString("hex");
+      const tmpPath = join(tmpdir(), `${id}-clip1.mp4`);
+      try {
+        const r = await fetch(endingFor);
+        if (!r.ok) throw new Error(`Failed to fetch clip 1: HTTP ${r.status}`);
+        await writeFile(tmpPath, Buffer.from(await r.arrayBuffer()));
+        const lastFrameBase64 = await extractLastFrame(tmpPath);
+        console.log("[veo POST] last frame extracted, starting 5s ending generation");
+
+        const endingBody = {
+          instances: [{
+            prompt: buildEndingPrompt(),
+            image: { bytesBase64Encoded: lastFrameBase64, mimeType: "image/jpeg" },
+          }],
+          parameters: { aspectRatio: "9:16", durationSeconds: 5, sampleCount: 1 },
+        };
+
+        for (let attempt = 0; attempt < 4; attempt++) {
+          if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
+          const resp = await fetch(`${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(endingBody),
+          });
+          const data = await resp.json();
+          if (resp.ok) {
+            const operationName = data?.name;
+            if (!operationName) return res.status(500).json({ error: "No operation name in response" });
+            console.log("[veo POST] ending clip started:", operationName);
+            return res.status(200).json({ operationName });
+          }
+          console.error(`[veo POST] ending attempt ${attempt + 1} failed — HTTP ${resp.status}:`, JSON.stringify(data));
+          const isRetryable = resp.status === 429 || resp.status === 503;
+          if (!isRetryable || attempt === 3) {
+            return res.status(resp.status).json({ error: extractErrorMessage(data) });
+          }
+        }
+      } finally {
+        unlink(tmpPath).catch(() => {});
+      }
+    }
+
+    // ── Main clip mode ────────────────────────────────────────────────────
     if (!imageBase64 || !voiceStyle || !compliment) {
       return res.status(400).json({ error: "imageBase64, voiceStyle, and compliment are required" });
     }
 
-    // Primary: use ASSET reference images (Veo 3.1 "ingredients to video").
-    // referenceImages[0] = the cat photo (preserves the cat's appearance WITHOUT
-    // pinning it as frame 0).
-    // Fallback: if the API rejects reference images (preview support is patchy on the
-    // Gemini Developer endpoint), retry with the legacy image-to-video first-frame field.
-    //
-    // The Temptations button render is sent as a SECOND asset reference alongside the
-    // cat photo. Text description alone doesn't produce a faithful button render.
-    // If this causes empty/filtered output for a particular generation, the fallback
-    // chain (referenceImages rejected → first-frame) still recovers.
-    // Set USE_BUTTON_REFERENCE=0 in Vercel env vars to disable if needed.
     const useButtonRef = !/^(0|false)$/i.test(process.env.USE_BUTTON_REFERENCE || "");
-    // When ElevenLabs voiceover is enabled, Veo renders a SILENT (click-only) clip and
-    // the voice is composited in later. Otherwise Veo bakes the voice itself (legacy).
     const elevenLabs = /^(1|true)$/i.test(process.env.USE_ELEVENLABS || "");
-    const endingIndex = await nextEndingIndex();
-    console.log(`[veo POST] ending index: ${endingIndex} of ${ENDINGS.length}`);
-    const prompt = buildPrompt(voiceStyle, compliment, elevenLabs, ENDINGS[endingIndex]);
+    const prompt = buildMainPrompt(voiceStyle, compliment, elevenLabs);
+
     const referenceImages = [{
       image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
       referenceType: "asset",
@@ -216,19 +266,14 @@ export default async function handler(req, res) {
         referenceType: "asset",
       });
     }
-    console.log(`[veo POST] referenceImages count: ${referenceImages.length} (button ref ${useButtonRef ? "ON" : "OFF"}, elevenLabs ${elevenLabs ? "ON" : "OFF"})`);
+    console.log(`[veo POST] main clip: referenceImages count: ${referenceImages.length} (button ref ${useButtonRef ? "ON" : "OFF"}, elevenLabs ${elevenLabs ? "ON" : "OFF"})`);
+
     const refBody = {
-      instances: [{
-        prompt,
-        referenceImages,
-      }],
+      instances: [{ prompt, referenceImages }],
       parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
     };
     const firstFrameBody = {
-      instances: [{
-        prompt,
-        image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
-      }],
+      instances: [{ prompt, image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType } }],
       parameters: { aspectRatio: "9:16", durationSeconds: 8, sampleCount: 1 },
     };
 
@@ -250,17 +295,16 @@ export default async function handler(req, res) {
       if (r.ok) break;
       console.error(`[veo POST] attempt ${attempt + 1} failed — HTTP ${r.status}:`, JSON.stringify(data));
 
-      // If reference images aren't supported, fall back to first-frame once.
       const errStr = JSON.stringify(data).toLowerCase();
       const refUnsupported = !usedFallback && body === refBody &&
         (errStr.includes("referenceimage") || errStr.includes("reference_image") ||
          errStr.includes("not supported") || errStr.includes("unknown name") ||
-         errStr.includes("invalid")) ;
+         errStr.includes("invalid"));
       if (refUnsupported) {
         console.log("[veo POST] referenceImages rejected — falling back to first-frame image");
         body = firstFrameBody;
         usedFallback = true;
-        continue; // immediate retry with fallback body, no backoff
+        continue;
       }
 
       const isRetryable = r.status === 429 || r.status === 503;
@@ -268,7 +312,7 @@ export default async function handler(req, res) {
         return res.status(r.status).json({ error: extractErrorMessage(data) });
       }
     }
-    console.log(`[veo POST] started using ${usedFallback ? "first-frame image" : "asset referenceImages"}`);
+    console.log(`[veo POST] main clip started using ${usedFallback ? "first-frame image" : "asset referenceImages"}`);
 
     const operationName = data?.name;
     if (!operationName) {
@@ -291,7 +335,6 @@ export default async function handler(req, res) {
 
       const data = await r.json();
 
-      // Never cache poll responses — a stale "pending" would block completion detection.
       res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.setHeader("Pragma", "no-cache");
 
@@ -307,7 +350,6 @@ export default async function handler(req, res) {
 
       if (!data.done) return res.status(200).json({ status: "pending" });
 
-      // Done — extract and store video
       console.log("[veo GET] operation done, full response:", JSON.stringify(data));
       const video = extractVideoUrl(data.response || data);
       if (!video) {
@@ -324,12 +366,10 @@ export default async function handler(req, res) {
       const id = randomBytes(8).toString("hex");
       let videoBuffer;
       if (video.uri) {
-        // Convert gs:// URIs to an authenticated HTTPS download URL.
-        // Plain HTTPS URIs get the API key appended for auth.
         let downloadUrl = video.uri;
         console.log("[veo GET] raw video URI:", downloadUrl);
         if (downloadUrl.startsWith("gs://")) {
-          const withoutScheme = downloadUrl.slice(5); // "bucket/path/to/file.mp4"
+          const withoutScheme = downloadUrl.slice(5);
           const slashIdx = withoutScheme.indexOf("/");
           const bucket = withoutScheme.slice(0, slashIdx);
           const object = encodeURIComponent(withoutScheme.slice(slashIdx + 1));
@@ -354,8 +394,6 @@ export default async function handler(req, res) {
       });
 
       console.log("[veo GET] stored to blob:", url);
-      // In ElevenLabs mode this stored clip is SILENT (click only). The client then
-      // calls /api/finalize to detect the press, generate the voice, and bake it in.
       const needsVoice = /^(1|true)$/i.test(process.env.USE_ELEVENLABS || "");
       return res.status(200).json({ status: "done", url, needsVoice });
 

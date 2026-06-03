@@ -23,7 +23,7 @@ import ffmpegPath from "ffmpeg-static";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
-  maxDuration: 60,
+  maxDuration: 300,
 };
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
@@ -51,6 +51,7 @@ const DEFAULT_VOICE_SETTINGS = { stability: 0.5, similarity_boost: 0.75, style: 
 
 const DEFAULT_PRESS_SECONDS = 1.1;  // fallback — prompt instructs Veo to press ~1s in
 const PRESS_MIN_SECONDS = 0.2;
+const LOGO_DURATION = 2.0;          // seconds before end to show the Temptations logo
 
 // Audio layout. The real click.mp3 is ~0.55s long with ~0.05s of lead-in silence;
 // CLICK_LEAD_TRIM drops that silence so the click's transient lands ON the press,
@@ -203,6 +204,21 @@ async function resolveClickPath() {
   return p;
 }
 
+// Locate the Temptations logo PNG for the closing overlay.
+function resolveLogoPath() {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(process.cwd(), "public/logo.png"),
+    join(here, "../public/logo.png"),
+    join(here, "public/logo.png"),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) { console.log("[finalize] found logo.png:", p); return p; }
+  }
+  console.warn("[finalize] logo.png not found — skipping logo overlay");
+  return null;
+}
+
 // Generate the voiceover MP3 from the persona's fixed ElevenLabs voice ID.
 async function generateVoice(voiceId, text, apiKey) {
   const r = await fetch(`${ELEVEN_BASE}/${voiceId}`, {
@@ -230,7 +246,7 @@ export default async function handler(req, res) {
   if (!elevenKey) return res.status(500).json({ error: "ELEVENLABS_API_KEY not configured" });
   if (!ffmpegPath) return res.status(500).json({ error: "ffmpeg binary not available" });
 
-  const { videoUrl, voice, compliment } = req.body || {};
+  const { videoUrl, endingVideoUrl, voice, compliment } = req.body || {};
   if (!videoUrl || !voice || !compliment) {
     return res.status(400).json({ error: "videoUrl, voice, and compliment are required" });
   }
@@ -238,68 +254,110 @@ export default async function handler(req, res) {
   if (!voiceId) return res.status(400).json({ error: `Unknown voice: ${voice}` });
 
   const id = randomBytes(8).toString("hex");
-  const inPath = join(tmpdir(), `${id}-in.mp4`);
+  const mainPath = join(tmpdir(), `${id}-main.mp4`);
+  const endPath  = join(tmpdir(), `${id}-end.mp4`);
   const voicePath = join(tmpdir(), `${id}-vo.mp3`);
-  const outPath = join(tmpdir(), `${id}-out.mp4`);
+  const outPath  = join(tmpdir(), `${id}-out.mp4`);
 
   try {
-    // 1. Download the silent Veo clip.
-    const vresp = await fetch(videoUrl);
-    if (!vresp.ok) throw new Error(`Failed to fetch source video: HTTP ${vresp.status}`);
-    const videoBuffer = Buffer.from(await vresp.arrayBuffer());
-    await writeFile(inPath, videoBuffer);
+    // 1. Download the main clip (and ending in parallel if provided).
+    const downloads = [fetch(videoUrl).then(async r => {
+      if (!r.ok) throw new Error(`Failed to fetch main clip: HTTP ${r.status}`);
+      await writeFile(mainPath, Buffer.from(await r.arrayBuffer()));
+    })];
+    if (endingVideoUrl) {
+      downloads.push(fetch(endingVideoUrl).then(async r => {
+        if (!r.ok) throw new Error(`Failed to fetch ending clip: HTTP ${r.status}`);
+        await writeFile(endPath, Buffer.from(await r.arrayBuffer()));
+      }));
+    }
+    await Promise.all(downloads);
 
-    // 2. In parallel: generate the voice, get Gemini's visual press estimate,
-    //    get video duration, and resolve the click asset.
-    const [voiceBuffer, visual, videoLen, clickPath] = await Promise.all([
+    // 2. In parallel: generate voice, detect press, get durations, resolve assets.
+    const [voiceBuffer, visual, mainLen, endLen, clickPath, logoPath] = await Promise.all([
       generateVoice(voiceId, compliment, elevenKey),
-      detectPressVisual(inPath, googleKey),
-      mediaDuration(inPath).then(d => d || 8),
+      detectPressVisual(mainPath, googleKey),
+      mediaDuration(mainPath).then(d => d || 8),
+      endingVideoUrl ? mediaDuration(endPath).then(d => d || 5) : Promise.resolve(0),
       resolveClickPath(),
+      Promise.resolve(resolveLogoPath()),
     ]);
     await writeFile(voicePath, voiceBuffer);
 
-    // 3. Resolve the press moment (Gemini's fully-pressed frame, nudged slightly
-    //    later by CLICK_OFFSET so the click lands as the button bottoms out).
+    // 3. Resolve press moment.
     let { pressSeconds, source } = resolvePress(visual);
-    pressSeconds = Math.min(Math.max(pressSeconds + CLICK_OFFSET, PRESS_MIN_SECONDS), videoLen - 0.1);
+    pressSeconds = Math.min(Math.max(pressSeconds + CLICK_OFFSET, PRESS_MIN_SECONDS), mainLen - 0.1);
     console.log(`[finalize] press=${pressSeconds.toFixed(3)}s via ${source} (visual=${visual}, +${CLICK_OFFSET} offset)`);
 
-    // 4. Compute timing. The clip stays at its native length (8s) — we never
-    //    freeze-extend. The voice starts after the click; if a long voiceover would
-    //    run past the end it is simply truncated (compliments are kept short to fit).
+    const totalLen = mainLen + endLen;
     const clickMs = Math.round(pressSeconds * 1000);
     const voiceStart = pressSeconds + VOICE_GAP_SECONDS;
     const voiceMs = Math.round(voiceStart * 1000);
-    const target = videoLen;
-    console.log(`[finalize] click@${clickMs}ms voice@${voiceMs}ms videoLen=${videoLen.toFixed(2)} (8s cap, no extend)`);
+    const logoStart = Math.max(0, totalLen - LOGO_DURATION);
+    console.log(`[finalize] click@${clickMs}ms voice@${voiceMs}ms main=${mainLen.toFixed(2)}s end=${endLen.toFixed(2)}s total=${totalLen.toFixed(2)}s`);
 
-    // 5. Build the final video: keep the native 8s frames, bake the audio track
-    //    from scratch — click at the press, voice just after. Veo's own audio is
-    //    discarded entirely.
-    // Click: trim its lead-in silence so the transient lands ON the press, boost
-    // it (the source is quiet), force stereo, then delay to the press moment.
-    // Voice: force stereo and delay to press + gap so it starts AFTER the click.
-    const filter =
-      `[0:v]setsar=1[v];` +
-      `[1:a]atrim=start=${CLICK_LEAD_TRIM},asetpts=PTS-STARTPTS,volume=${CLICK_VOLUME},` +
+    // 4. Build ffmpeg command.
+    //    Inputs:
+    //      0 = main clip
+    //      1 = ending clip  (if present)
+    //      2 = click.mp3
+    //      3 = voice.mp3
+    //      4 = logo.png     (if present, -loop 1)
+    //    Without ending: 0=main, 1=click, 2=voice, 3=logo
+    const hasEnding = !!endingVideoUrl && endLen > 0;
+    const clickIdx = hasEnding ? 2 : 1;
+    const voiceIdx = hasEnding ? 3 : 2;
+    const logoIdx  = hasEnding ? 4 : 3;
+
+    // Video chain: concat if we have an ending, then overlay logo if available.
+    let videoChain;
+    if (hasEnding) {
+      videoChain =
+        `[0:v]setsar=1,fps=24,format=yuv420p[v0];` +
+        `[1:v]setsar=1,fps=24,format=yuv420p[v1];` +
+        `[v0][v1]concat=n=2:v=1:a=0[cat]`;
+    } else {
+      videoChain = `[0:v]setsar=1,fps=24,format=yuv420p[cat]`;
+    }
+
+    let videoOut;
+    if (logoPath) {
+      videoChain +=
+        `;[${logoIdx}:v]scale=320:-1[logo]` +
+        `;[cat][logo]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2` +
+          `:enable='gte(t,${logoStart.toFixed(3)})',format=yuv420p[v]`;
+      videoOut = "[v]";
+    } else {
+      videoChain += `;[cat]copy[v]`;
+      videoOut = "[v]";
+    }
+
+    // Audio chain: click + voice mixed over the full film.
+    const audioChain =
+      `[${clickIdx}:a]atrim=start=${CLICK_LEAD_TRIM},asetpts=PTS-STARTPTS,volume=${CLICK_VOLUME},` +
         `aformat=channel_layouts=stereo,adelay=${clickMs}|${clickMs}[click];` +
-      `[2:a]aformat=channel_layouts=stereo,adelay=${voiceMs}|${voiceMs}[vo];` +
+      `[${voiceIdx}:a]aformat=channel_layouts=stereo,adelay=${voiceMs}|${voiceMs}[vo];` +
       `[click][vo]amix=inputs=2:normalize=0:duration=longest,alimiter=limit=0.97[a]`;
-    await run(ffmpegPath, [
-      "-y",
-      "-i", inPath,         // 0: video (audio ignored)
-      "-i", clickPath,      // 1: click.mp3
-      "-i", voicePath,      // 2: ElevenLabs voice
+
+    const filter = videoChain + `;` + audioChain;
+
+    const ffmpegArgs = ["-y"];
+    ffmpegArgs.push("-i", mainPath);
+    if (hasEnding) ffmpegArgs.push("-i", endPath);
+    ffmpegArgs.push("-i", clickPath, "-i", voicePath);
+    if (logoPath) ffmpegArgs.push("-loop", "1", "-i", logoPath);
+    ffmpegArgs.push(
       "-filter_complex", filter,
-      "-map", "[v]", "-map", "[a]",
-      "-t", target.toFixed(3),
-      "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+      "-map", videoOut, "-map", "[a]",
+      "-t", totalLen.toFixed(3),
+      "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
       "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
       outPath,
-    ]);
+    );
 
-    // 6. Store the final audio-baked MP4.
+    await run(ffmpegPath, ffmpegArgs);
+
+    // 5. Store and return.
     const finalBuffer = await readFile(outPath);
     const { url } = await put(`cats/${id}-final.mp4`, finalBuffer, {
       access: "public",
@@ -312,6 +370,6 @@ export default async function handler(req, res) {
     console.error("[finalize] error:", err.message, err.stack);
     return res.status(500).json({ error: err.message });
   } finally {
-    for (const p of [inPath, voicePath, outPath]) unlink(p).catch(() => {});
+    for (const p of [mainPath, endPath, voicePath, outPath]) unlink(p).catch(() => {});
   }
 }

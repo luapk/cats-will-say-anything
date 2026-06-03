@@ -301,27 +301,54 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       // Clear initial step so GENERATING_STEPS cycle shows during polling
       setGeneratingStep("");
 
-      // Poll until done (max 10 min)
-      let finalUrl = null;
-      let needsVoice = false;
-      for (let i = 0; i < 120; i++) {
-        await new Promise(r => setTimeout(r, 5000));
-        setElapsedSeconds((i + 1) * 5);
-        const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(operationName)}&t=${Date.now()}`);
-        const pollData = await pollResp.json();
-        if (pollData.status === "done") { finalUrl = pollData.url; needsVoice = !!pollData.needsVoice; break; }
-        if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
-      }
-      if (!finalUrl) throw new Error("Generation timed out after 10 minutes");
+      // Poll a single Veo operation until done (max 10 min).
+      const pollOp = async (op) => {
+        for (let i = 0; i < 120; i++) {
+          await new Promise(r => setTimeout(r, 5000));
+          setElapsedSeconds(prev => prev + 5);
+          const pollResp = await fetch(`/api/veo?op=${encodeURIComponent(op)}&t=${Date.now()}`);
+          const pollData = await pollResp.json();
+          if (pollData.status === "done") return pollData;
+          if (pollData.status === "failed") throw new Error(pollData.error || "Veo generation failed");
+        }
+        throw new Error("Generation timed out after 10 minutes");
+      };
 
-      // ElevenLabs mode: the clip is silent (click only). Add the voice now,
-      // baked in at the detected press moment.
+      // Poll main clip (8s).
+      const mainPoll = await pollOp(operationName);
+      const mainUrl = mainPoll.url;
+      const needsVoice = !!mainPoll.needsVoice;
+
+      // Request ending clip (5s) from the last frame of the main clip.
+      let endingUrl = null;
+      if (needsVoice) {
+        setGeneratingStep("Filming the final scene...");
+        try {
+          const endStartResp = await fetch("/api/veo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endingFor: mainUrl }),
+          });
+          const endStartData = await endStartResp.json();
+          if (endStartResp.ok && endStartData.operationName) {
+            const endPoll = await pollOp(endStartData.operationName);
+            endingUrl = endPoll.url;
+          } else {
+            console.warn("[createFilm] ending clip failed to start:", endStartData.error);
+          }
+        } catch (e) {
+          console.warn("[createFilm] ending clip failed:", e.message, "— continuing without it");
+        }
+      }
+
+      // ElevenLabs mode: bake click + voice; concat ending if available; overlay logo.
+      let finalUrl = needsVoice ? null : mainUrl;
       if (needsVoice) {
         setGeneratingStep("Recording the voiceover...");
         const finResp = await fetch("/api/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: finalUrl, voice: analysis.voice, compliment }),
+          body: JSON.stringify({ videoUrl: mainUrl, endingVideoUrl: endingUrl, voice: analysis.voice, compliment }),
         });
         const finData = await finResp.json();
         if (!finResp.ok || !finData.url) throw new Error(finData.error || "Voiceover compositing failed");
