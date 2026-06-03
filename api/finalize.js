@@ -437,8 +437,8 @@ export default async function handler(req, res) {
     let videoOut;
     if (logoPath) {
       videoChain +=
-        `;[${logoIdx}:v]scale=320:-1[logo]` +
-        `;[cat][logo]overlay=(main_w-overlay_w)/2:(main_h-overlay_h)/2` +
+        `;[${logoIdx}:v]scale=384:-1[logo]` +
+        `;[cat][logo]overlay=(main_w-overlay_w)/2:(main_h/3-overlay_h)` +
           `:enable='gte(t,${logoStart.toFixed(3)})',format=yuv420p[v]`;
       videoOut = "[v]";
     } else {
