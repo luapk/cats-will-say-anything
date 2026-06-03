@@ -23,7 +23,7 @@ import ffmpegPath from "ffmpeg-static";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
-  maxDuration: 300,
+  maxDuration: 800,
 };
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";

@@ -8,7 +8,7 @@
     "api/gemini.js": { "maxDuration": 30 },
     "api/voice.js": { "maxDuration": 30 },
     "api/finalize.js": {
-      "maxDuration": 300,
+      "maxDuration": 800,
       "includeFiles": "{node_modules/ffmpeg-static/**,public/click.mp3,public/logo.png}"
     }
   }
