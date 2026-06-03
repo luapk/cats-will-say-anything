@@ -1,37 +1,12 @@
 // Veo 3.1 — image-to-video.
 // POST  { imageBase64, imageMimeType, voiceStyle, compliment }  → { operationName }
-// POST  { endingFor: videoUrl }  → { operationName }  (extract last frame → 5s ending clip)
 // GET   ?op={operationName} → { status: "pending"|"done"|"failed", url?, error? }
 
 import { put } from "@vercel/blob";
 import { randomBytes } from "crypto";
-import { execFile } from "child_process";
-import { writeFile, readFile, unlink } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
-import ffmpegPath from "ffmpeg-static";
 
 const VEO_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const VEO_MODEL = "veo-3.1-generate-preview";
-
-// execFile that rejects on non-zero exit.
-function run(bin, args) {
-  return new Promise((resolve, reject) => {
-    execFile(bin, args, { maxBuffer: 1024 * 1024 * 64 }, (err, stdout, stderr) => {
-      if (err) return reject(new Error(`${err.message}\n${stderr}`));
-      resolve({ stdout, stderr });
-    });
-  });
-}
-
-// execFile that never rejects — used for ffmpeg probe runs.
-function capture(bin, args) {
-  return new Promise((resolve) => {
-    execFile(bin, args, { maxBuffer: 1024 * 1024 * 64 }, (err, stdout, stderr) => {
-      resolve({ stdout: stdout || "", stderr: stderr || "" });
-    });
-  });
-}
 
 // Robustly turn any Google error response shape into a plain string.
 function extractErrorMessage(data) {
@@ -105,7 +80,7 @@ function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
 
   return (
     `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `The FIRST reference image is the CAT (the star). The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
+    `The FIRST reference image is the CAT (the star). The SECOND reference image is the TEMPTATIONS BUTTON prop — you MUST reproduce this button EXACTLY as it appears: same shape, same vivid red base, same yellow top cap, same white cloud logo badge, same glossy plastic finish. ` +
     `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
     `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
     `This cat is the star of the video. ` +
@@ -123,46 +98,6 @@ function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
     `NO TEXT ON SCREEN: Do not render any words, captions, subtitles, labels, or text of any kind burned into the video frames. No on-screen text whatsoever. ` +
     `VISUAL STYLE: Cinematic, shallow depth of field, warm studio lighting, 9:16 portrait, 8 seconds.`
   );
-}
-
-// Ending clip prompt (5s). Uses the last frame of clip 1 as first frame via the
-// image field. Pure visual — no audio vocabulary anywhere.
-function buildEndingPrompt() {
-  return (
-    `STARTING FRAME: The provided image is the EXACT first frame of this clip. ` +
-    `Match it precisely — same cat, same position, same yellow studio, same lighting. ` +
-    `\n\n` +
-    `ACTION: Over the full 5 seconds, the camera executes one slow, smooth, continuous pull-back — a gentle zoom out away from the cat. ` +
-    `The cat holds completely still, sitting upright, staring directly into the lens throughout. ` +
-    `No movement from the cat. No camera cuts or sudden transitions. Simply a steady, slow recession. ` +
-    `\n\n` +
-    `SCENE: Bright solid yellow studio floor and background. Only the cat — the cat is the only subject. ` +
-    `\n\n` +
-    `NO HUMANS: No human figures, hands, or body parts. Only the cat. ` +
-    `NO TEXT ON SCREEN: No captions, labels, or text of any kind. ` +
-    `VISUAL STYLE: Cinematic, warm studio lighting, 9:16 portrait, 5 seconds.`
-  );
-}
-
-// Extract the last frame of a video as JPEG base64.
-async function extractLastFrame(videoPath) {
-  const { stderr } = await capture(ffmpegPath, ["-hide_banner", "-i", videoPath]);
-  const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
-  if (!m) throw new Error("Could not parse video duration for last-frame extraction");
-  const dur = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
-  const seekTo = Math.max(0, dur - 0.15).toFixed(3);
-
-  const framePath = join(tmpdir(), `${randomBytes(4).toString("hex")}-lastframe.jpg`);
-  try {
-    await run(ffmpegPath, [
-      "-y", "-ss", seekTo, "-i", videoPath,
-      "-vframes", "1", "-q:v", "3", "-f", "image2", framePath,
-    ]);
-    const buf = await readFile(framePath);
-    return buf.toString("base64");
-  } finally {
-    unlink(framePath).catch(() => {});
-  }
 }
 
 function extractVideoUrl(response) {
@@ -199,55 +134,8 @@ export default async function handler(req, res) {
     const {
       imageBase64, imageMimeType = "image/jpeg", voiceStyle, compliment,
       buttonBase64, buttonMimeType = "image/png",
-      endingFor, // URL of clip 1 → extract last frame → start 5s ending clip
     } = req.body || {};
 
-    // ── Ending clip mode ──────────────────────────────────────────────────
-    if (endingFor) {
-      console.log("[veo POST] ending mode: downloading clip 1 to extract last frame");
-      const id = randomBytes(6).toString("hex");
-      const tmpPath = join(tmpdir(), `${id}-clip1.mp4`);
-      try {
-        const r = await fetch(endingFor);
-        if (!r.ok) throw new Error(`Failed to fetch clip 1: HTTP ${r.status}`);
-        await writeFile(tmpPath, Buffer.from(await r.arrayBuffer()));
-        const lastFrameBase64 = await extractLastFrame(tmpPath);
-        console.log("[veo POST] last frame extracted, starting 5s ending generation");
-
-        const endingBody = {
-          instances: [{
-            prompt: buildEndingPrompt(),
-            image: { bytesBase64Encoded: lastFrameBase64, mimeType: "image/jpeg" },
-          }],
-          parameters: { aspectRatio: "9:16", durationSeconds: 5, sampleCount: 1 },
-        };
-
-        for (let attempt = 0; attempt < 4; attempt++) {
-          if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
-          const resp = await fetch(`${VEO_BASE}/models/${VEO_MODEL}:predictLongRunning?key=${key}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(endingBody),
-          });
-          const data = await resp.json();
-          if (resp.ok) {
-            const operationName = data?.name;
-            if (!operationName) return res.status(500).json({ error: "No operation name in response" });
-            console.log("[veo POST] ending clip started:", operationName);
-            return res.status(200).json({ operationName });
-          }
-          console.error(`[veo POST] ending attempt ${attempt + 1} failed — HTTP ${resp.status}:`, JSON.stringify(data));
-          const isRetryable = resp.status === 429 || resp.status === 503;
-          if (!isRetryable || attempt === 3) {
-            return res.status(resp.status).json({ error: extractErrorMessage(data) });
-          }
-        }
-      } finally {
-        unlink(tmpPath).catch(() => {});
-      }
-    }
-
-    // ── Main clip mode ────────────────────────────────────────────────────
     if (!imageBase64 || !voiceStyle || !compliment) {
       return res.status(400).json({ error: "imageBase64, voiceStyle, and compliment are required" });
     }

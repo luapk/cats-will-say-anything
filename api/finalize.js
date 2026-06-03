@@ -175,6 +175,115 @@ function resolvePress(visual) {
   return { pressSeconds: visual, source: "visual" };
 }
 
+// Ending clip generation: extract last frame of main clip, generate a 5s
+// continuation via Veo (slow zoom out), then return the stored Blob URL.
+const VEO_BASE_FIN = "https://generativelanguage.googleapis.com/v1beta";
+const VEO_MODEL_FIN = "veo-3.1-generate-preview";
+
+function buildEndingPrompt() {
+  return (
+    `STARTING FRAME: The provided image is the EXACT first frame of this clip. ` +
+    `Match it precisely — same cat, same position, same yellow studio, same lighting. ` +
+    `\n\n` +
+    `ACTION: Over the full 5 seconds, the camera executes one slow, smooth, continuous pull-back — a gentle recession away from the cat. ` +
+    `The cat holds completely still, sitting upright, staring directly into the lens throughout. ` +
+    `No movement from the cat. No sudden transitions. Simply a steady, slow recession. ` +
+    `\n\n` +
+    `SCENE: Bright solid yellow studio floor and background. Only the cat. ` +
+    `\n\n` +
+    `NO HUMANS: No human figures, hands, or body parts. Only the cat. ` +
+    `NO TEXT ON SCREEN: No captions, labels, or text of any kind. ` +
+    `VISUAL STYLE: Cinematic, warm studio lighting, 9:16 portrait, 5 seconds.`
+  );
+}
+
+async function generateEndingClip(mainPath, googleKey) {
+  // Extract last frame
+  const { stderr } = await capture(ffmpegPath, ["-hide_banner", "-i", mainPath]);
+  const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  if (!m) { console.warn("[finalize] could not parse duration for ending — skipping"); return null; }
+  const dur = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+  const seekTo = Math.max(0, dur - 0.15).toFixed(3);
+
+  const frameId = randomBytes(4).toString("hex");
+  const framePath = join(tmpdir(), `${frameId}-lastframe.jpg`);
+  try {
+    await run(ffmpegPath, [
+      "-y", "-ss", seekTo, "-i", mainPath,
+      "-vframes", "1", "-q:v", "3", "-f", "image2", framePath,
+    ]);
+  } catch (e) {
+    console.warn("[finalize] last-frame extraction failed:", e.message);
+    return null;
+  }
+
+  let frameBase64;
+  try {
+    frameBase64 = (await readFile(framePath)).toString("base64");
+  } finally {
+    unlink(framePath).catch(() => {});
+  }
+
+  // Start Veo ending job
+  const body = {
+    instances: [{
+      prompt: buildEndingPrompt(),
+      image: { bytesBase64Encoded: frameBase64, mimeType: "image/jpeg" },
+    }],
+    parameters: { aspectRatio: "9:16", durationSeconds: 5, sampleCount: 1 },
+  };
+  let opName;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(x => setTimeout(x, attempt * 4000));
+    const r = await fetch(`${VEO_BASE_FIN}/models/${VEO_MODEL_FIN}:predictLongRunning?key=${googleKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (r.ok && data?.name) { opName = data.name; break; }
+    console.warn(`[finalize] ending Veo start attempt ${attempt + 1} failed:`, JSON.stringify(data).slice(0, 200));
+    if (r.status !== 429 && r.status !== 503) return null;
+  }
+  if (!opName) return null;
+
+  // Poll ending operation (max 3 min)
+  for (let i = 0; i < 36; i++) {
+    await new Promise(x => setTimeout(x, 5000));
+    const r = await fetch(`${VEO_BASE_FIN}/${opName}?key=${googleKey}`);
+    const data = await r.json();
+    if (!r.ok || data.error) { console.warn("[finalize] ending poll error:", JSON.stringify(data).slice(0, 200)); return null; }
+    if (!data.done) continue;
+
+    const samples = data.response?.generateVideoResponse?.generatedSamples || data.response?.generatedSamples;
+    const vidUri = samples?.[0]?.video?.uri;
+    const vidB64 = samples?.[0]?.video?.bytesBase64Encoded;
+    if (!vidUri && !vidB64) { console.warn("[finalize] ending clip filtered or empty"); return null; }
+
+    let buf;
+    if (vidUri) {
+      let url = vidUri;
+      if (url.startsWith("gs://")) {
+        const rest = url.slice(5);
+        const slash = rest.indexOf("/");
+        url = `https://storage.googleapis.com/download/storage/v1/b/${rest.slice(0,slash)}/o/${encodeURIComponent(rest.slice(slash+1))}?alt=media&key=${googleKey}`;
+      } else if (!url.includes("key=")) url += (url.includes("?") ? "&" : "?") + `key=${googleKey}`;
+      const vr = await fetch(url);
+      if (!vr.ok) { console.warn("[finalize] ending clip download failed:", vr.status); return null; }
+      buf = Buffer.from(await vr.arrayBuffer());
+    } else {
+      buf = Buffer.from(vidB64, "base64");
+    }
+
+    const eid = randomBytes(6).toString("hex");
+    const { url: blobUrl } = await put(`cats/${eid}-ending.mp4`, buf, { access: "public", contentType: "video/mp4" });
+    console.log("[finalize] ending clip stored:", blobUrl);
+    return blobUrl;
+  }
+  console.warn("[finalize] ending clip timed out");
+  return null;
+}
+
 // Locate the real bundled click.mp3. Only if it genuinely isn't shipped with the
 // function do we fall back to synthesizing one (emergency net — not preferred).
 async function resolveClickPath() {
@@ -246,7 +355,7 @@ export default async function handler(req, res) {
   if (!elevenKey) return res.status(500).json({ error: "ELEVENLABS_API_KEY not configured" });
   if (!ffmpegPath) return res.status(500).json({ error: "ffmpeg binary not available" });
 
-  const { videoUrl, endingVideoUrl, voice, compliment } = req.body || {};
+  const { videoUrl, voice, compliment } = req.body || {};
   if (!videoUrl || !voice || !compliment) {
     return res.status(400).json({ error: "videoUrl, voice, and compliment are required" });
   }
@@ -260,28 +369,33 @@ export default async function handler(req, res) {
   const outPath  = join(tmpdir(), `${id}-out.mp4`);
 
   try {
-    // 1. Download the main clip (and ending in parallel if provided).
-    const downloads = [fetch(videoUrl).then(async r => {
-      if (!r.ok) throw new Error(`Failed to fetch main clip: HTTP ${r.status}`);
-      await writeFile(mainPath, Buffer.from(await r.arrayBuffer()));
-    })];
-    if (endingVideoUrl) {
-      downloads.push(fetch(endingVideoUrl).then(async r => {
-        if (!r.ok) throw new Error(`Failed to fetch ending clip: HTTP ${r.status}`);
-        await writeFile(endPath, Buffer.from(await r.arrayBuffer()));
-      }));
-    }
-    await Promise.all(downloads);
+    // 1. Download the main clip.
+    const vresp = await fetch(videoUrl);
+    if (!vresp.ok) throw new Error(`Failed to fetch main clip: HTTP ${vresp.status}`);
+    await writeFile(mainPath, Buffer.from(await vresp.arrayBuffer()));
 
-    // 2. In parallel: generate voice, detect press, get durations, resolve assets.
-    const [voiceBuffer, visual, mainLen, endLen, clickPath, logoPath] = await Promise.all([
+    // 2. Generate ending clip (extract last frame → 5s Veo) and voice/assets in parallel.
+    //    Ending is non-fatal: if it fails we fall back to main clip only.
+    const [voiceBuffer, visual, mainLen, endingVideoUrl, clickPath, logoPath] = await Promise.all([
       generateVoice(voiceId, compliment, elevenKey),
       detectPressVisual(mainPath, googleKey),
       mediaDuration(mainPath).then(d => d || 8),
-      endingVideoUrl ? mediaDuration(endPath).then(d => d || 5) : Promise.resolve(0),
+      generateEndingClip(mainPath, googleKey),
       resolveClickPath(),
       Promise.resolve(resolveLogoPath()),
     ]);
+
+    // Download ending clip if generated.
+    let endLen = 0;
+    if (endingVideoUrl) {
+      const er = await fetch(endingVideoUrl);
+      if (er.ok) {
+        await writeFile(endPath, Buffer.from(await er.arrayBuffer()));
+        endLen = await mediaDuration(endPath).then(d => d || 5);
+      } else {
+        console.warn("[finalize] could not download ending clip — skipping");
+      }
+    }
     await writeFile(voicePath, voiceBuffer);
 
     // 3. Resolve press moment.

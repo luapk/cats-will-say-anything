@@ -319,36 +319,15 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const mainUrl = mainPoll.url;
       const needsVoice = !!mainPoll.needsVoice;
 
-      // Request ending clip (5s) from the last frame of the main clip.
-      let endingUrl = null;
-      if (needsVoice) {
-        setGeneratingStep("Filming the final scene...");
-        try {
-          const endStartResp = await fetch("/api/veo", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ endingFor: mainUrl }),
-          });
-          const endStartData = await endStartResp.json();
-          if (endStartResp.ok && endStartData.operationName) {
-            const endPoll = await pollOp(endStartData.operationName);
-            endingUrl = endPoll.url;
-          } else {
-            console.warn("[createFilm] ending clip failed to start:", endStartData.error);
-          }
-        } catch (e) {
-          console.warn("[createFilm] ending clip failed:", e.message, "— continuing without it");
-        }
-      }
-
-      // ElevenLabs mode: bake click + voice; concat ending if available; overlay logo.
+      // ElevenLabs mode: finalize generates the ending clip internally, concats,
+      // bakes click + voice, and overlays the logo.
       let finalUrl = needsVoice ? null : mainUrl;
       if (needsVoice) {
-        setGeneratingStep("Recording the voiceover...");
+        setGeneratingStep("Filming the final scene...");
         const finResp = await fetch("/api/finalize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: mainUrl, endingVideoUrl: endingUrl, voice: analysis.voice, compliment }),
+          body: JSON.stringify({ videoUrl: mainUrl, voice: analysis.voice, compliment }),
         });
         const finData = await finResp.json();
         if (!finResp.ok || !finData.url) throw new Error(finData.error || "Voiceover compositing failed");
