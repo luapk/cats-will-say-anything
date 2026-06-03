@@ -22,7 +22,6 @@ export default async function handler(req, res) {
       temperature: 0.9,
       maxOutputTokens: 512,
       ...callerConfig,
-      thinkingConfig: { thinkingBudget: 0 },
     },
   };
 

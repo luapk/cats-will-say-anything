@@ -260,7 +260,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       }
       setAnalysis(parsed);
       setScreen("revealed");
-    } catch {
+    } catch (err) {
+      console.error("[analyzeCat] error:", err?.message || err);
       const fallback = VOICE_KEYS[Math.floor(Math.random() * VOICE_KEYS.length)];
       setAnalysis({
         voice: fallback,
