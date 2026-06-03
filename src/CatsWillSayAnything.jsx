@@ -367,12 +367,13 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const low = raw.toLowerCase();
       let friendly;
       if (low.includes("likeness") || low.includes("real people") || low.includes("celebrity") || low.includes("can't create videos") || low.includes("cannot create videos")) {
-        // Veo content filter — usually a named person/celebrity in the prompt.
         friendly = `That couldn't be generated due to a content rule (often a real person's name in the styling). Please try again.\n\nDetail: ${raw}`;
       } else if (low.includes("quota") || low.includes("resource_exhausted") || low.includes("429")) {
-        // Hard quota cap — waiting won't help until it resets / billing is raised.
         friendly = `Video generation quota reached on the Google API key. This won't clear by retrying — the daily Veo quota is used up (or billing needs raising).\n\nDetail: ${raw}`;
-      } else if (low.includes("overloaded") || low.includes("unavailable") || low.includes("503") || low.includes("high demand") || low.includes("try again")) {
+      } else if (low.includes("audio for your prompt") || low.includes("issue with the audio")) {
+        // Veo audio safety filter — can be a transient false positive, safe to retry.
+        friendly = `The film studio hit a content filter on this attempt. This sometimes clears on a retry — please try again.\n\nDetail: ${raw}`;
+      } else if (low.includes("overloaded") || low.includes("unavailable") || low.includes("503") || low.includes("high demand")) {
         friendly = `The film studio is very busy right now (Veo is temporarily overloaded). Wait a moment and try again.\n\nDetail: ${raw}`;
       } else {
         friendly = raw;
