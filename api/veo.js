@@ -68,7 +68,7 @@ function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
     `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
     `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
     `\n\n` +
-    `SCENE: Bright solid yellow studio floor and background. No other objects except one Temptations button. ` +
+    `SCENE: Bright, vibrant, saturated yellow studio floor and background — a warm sunny lemon-yellow, NOT brown, beige, mustard, ochre, or muddy. No other objects except one Temptations button. ` +
     `THE BUTTON sits directly on the yellow floor. It is ${BUTTON_SIZE}. Its yellow cap is seated FLUSH in the red base at rest — the cap never protrudes; pressing it only moves it a short way straight down. Match the button reference image exactly. ` +
     `\n\n` +
     audioSection +
