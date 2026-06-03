@@ -638,7 +638,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         .cat-ring-wrap {
           position: relative;
-          width: 120px; height: 120px;
+          width: 162px; height: 162px;
           display: flex; align-items: center; justify-content: center;
           margin-top: 28px;
         }
@@ -936,7 +936,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
           <div className="screen fade-up" style={{ alignItems: "center", gap: "20px" }}>
             <div className="cat-ring-wrap">
               {catImage && (
-                <img src={catImage} alt="cat" className="cat-circle" style={{ width: 100, height: 100 }} />
+                <img src={catImage} alt="cat" className="cat-circle" style={{ width: 135, height: 135 }} />
               )}
             </div>
             <p style={{ fontSize: "17px", fontWeight: 800, color: "#0A0A0A", textAlign: "center", minHeight: "26px" }}>
@@ -1007,13 +1007,13 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                   src={imgSrc}
                   alt="loading"
                   style={isUserPhoto ? {
-                    width: 100, height: 100,
+                    width: 135, height: 135,
                     borderRadius: "50%",
                     objectFit: "cover",
                     border: "3px solid #0A0A0A",
                     animation: "loaderFade 0.4s ease forwards",
                   } : {
-                    width: 96, height: 96,
+                    width: 130, height: 130,
                     objectFit: "contain",
                     animation: "loaderFade 0.4s ease forwards",
                   }}

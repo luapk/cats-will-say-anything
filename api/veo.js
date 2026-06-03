@@ -27,9 +27,10 @@ const BUTTON_SIZE = "approximately 90mm wide — small enough that it fits easil
 function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
   const audioSection = elevenLabs
     ? (
-      `ACTION — CRITICAL: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw back. ONE depression only — no second tap, no repeated pawing, no returning to the button. The cat's jaw remains closed and its face stays neutral throughout. ` +
+      `ACTION — CRITICAL: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw fully back and away. ` +
+      `This is a SINGLE press — ONE and only ONE. After the paw is withdrawn it NEVER moves toward the button again for the rest of the clip. There is no second tap, no double-press, no hovering near the button, no returning to it for any reason. The button is pressed exactly once and then left completely alone. The cat's jaw remains closed and its face stays neutral throughout. ` +
       `\n\n` +
-      `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera. Hold this stare until the clip ends. ` +
+      `POST-PRESS: the cat turns its head away from the button and holds a deadpan, grumpy, unblinking stare directly into the camera. The paw that pressed the button rests on the floor, well away from the button. Hold this stare until the clip ends. ` +
       `\n\n`
     )
     : (

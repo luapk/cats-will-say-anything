@@ -183,11 +183,12 @@ const VEO_MODEL_FIN = "veo-3.1-generate-preview";
 function buildEndingPrompt() {
   return (
     `STARTING FRAME: The provided image is the EXACT first frame of this clip. ` +
-    `Match it precisely — same cat, same position, same yellow studio, same lighting. ` +
+    `Match it precisely — same cat, same position, same pose, same yellow studio, same lighting. The cat begins this clip exactly as it appears in the starting frame: already stationary, already looking into the lens, already still. ` +
     `\n\n` +
-    `ACTION: Over the full 8 seconds, the camera executes one slow, smooth, continuous pull-back — a gentle recession away from the cat. ` +
+    `ACTION: The cat holds completely still from the very first frame — no nodding, no head movement, no adjusting position, no leaning toward or away from anything. ` +
+    `Over the full 8 seconds, the CAMERA (not the cat) executes one slow, smooth, continuous pull-back — a gentle recession away from the cat. ` +
     `In the final 2 seconds, as the wide shot settles, the cat gives one slow, dismissive flick of its tail. ` +
-    `Simply a steady, slow recession that ends on a wide shot of the cat in the yellow studio. ` +
+    `Simply a steady, slow camera recession that ends on a wide shot of the cat in the yellow studio. ` +
     `\n\n` +
     `SCENE: Bright, vibrant, saturated yellow studio floor and background (a warm sunny lemon-yellow — NOT brown, beige, mustard, ochre, or muddy). Only the cat. ` +
     `\n\n` +
