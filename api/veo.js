@@ -46,17 +46,18 @@ const BUTTON_BIBLE = JSON.stringify({
 // Five distinct closing beats for the last ~1.5–2s. Chosen SEQUENTIALLY across
 // all films (not per-user, not random) via a shared counter in Blob storage, so
 // consecutive generations rotate through the full set.
+// All endings keep the cat SEATED — only facial expression, eyes, or tail move.
 const ENDINGS = [
-  // 0 — crash zoom (the original)
-  `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame. The cat holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. `,
-  // 1 — wide pull-back, patient
-  `FINAL SHOT (last 1.5–2 seconds): The camera pulls back to a wide shot, the cat now small and centred in the vast empty yellow studio, sitting bolt upright and perfectly still, paws together, waiting with infinite patience. Hold on this composed wide image as the clip ends. `,
+  // 0 — crash zoom
+  `FINAL SHOT (last 1.5–2 seconds): Execute a rapid crash zoom — a sudden, fast push into an extreme close-up of the cat's face, filling the frame. The cat remains seated and holds its deadpan, deeply unimpressed stare directly into the lens. Hold on this face as the clip ends. `,
+  // 1 — wide pull-back, cat stays seated
+  `FINAL SHOT (last 1.5–2 seconds): The CAMERA pulls back to a wide shot — the cat stays seated in place, bolt upright and perfectly still, paws together. The cat gives one slow, dismissive flick of its tail. Hold on this composed wide image as the clip ends. `,
   // 2 — mortified
-  `FINAL SHOT (last 1.5–2 seconds): The cat suddenly looks mortified — ears flattening back, eyes darting away from the lens, head shrinking down between the shoulders, deeply embarrassed by what was just said. Hold on this sheepish, cringing expression as the clip ends. `,
+  `FINAL SHOT (last 1.5–2 seconds): The cat suddenly looks mortified — ears flattening back, eyes darting away from the lens, head shrinking slightly between the shoulders. The cat remains seated throughout. Hold on this sheepish, cringing expression as the clip ends. `,
   // 3 — smug
-  `FINAL SHOT (last 1.5–2 seconds): The cat gives one slow, supremely self-satisfied blink directly down the lens, chin lifting slightly, utterly pleased with itself. Hold on this smug, knowing expression as the clip ends. `,
-  // 4 — unbothered exit
-  `FINAL SHOT (last 1.5–2 seconds): The cat dismissively breaks eye contact, turns its head away and begins to stroll out of frame, tail flicking once, completely done with you. Hold on the emptying frame as the clip ends. `,
+  `FINAL SHOT (last 1.5–2 seconds): The cat gives one slow, supremely self-satisfied blink directly down the lens, chin lifting slightly, utterly pleased with itself. The cat remains seated throughout. Hold on this smug, knowing expression as the clip ends. `,
+  // 4 — tail flick and look away
+  `FINAL SHOT (last 1.5–2 seconds): The cat dismissively breaks eye contact and turns its head away, giving one slow flick of its tail. The cat remains completely seated and still — only the head turns and the tail flicks. Hold on this unbothered pose as the clip ends. `,
 ];
 
 function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
@@ -66,7 +67,7 @@ function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
       // Any word relating to sound (meow, click, voice, vocalise, silence, noise)
       // triggers Veo's audio safety filter even as a negative instruction.
       // finalize.js replaces Veo's audio track entirely anyway.
-      `ACTION — CRITICAL: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw back. ONE depression only — no second tap, no repeated pawing, no returning to the button. The cat's jaw remains closed and its face stays neutral throughout. ` +
+      `ACTION: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw fully back and away. After the paw is withdrawn it NEVER moves toward the button again for the rest of the clip — no second tap, no repeated pawing, no hovering, no returning to the button. The cat's jaw remains closed and its face stays neutral throughout. ` +
       `\n\n` +
       `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera — until the final shot below takes over. ` +
       `\n\n`
@@ -98,11 +99,14 @@ function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
     );
 
   return (
+    `RULE #1 — SINGLE PRESS ONLY: The cat presses the button EXACTLY ONCE in this entire video. ONE press, then NEVER again under any circumstances. No second touch, no second tap, no double-press, no hovering, no returning to the button. Exactly one press. This is absolute and overrides all other instructions. ` +
+    `\n\n` +
+    `RULE #2 — CAT LIKENESS IS PARAMOUNT: The cat in the video MUST be the IDENTICAL individual cat shown in the reference image — a perfect photographic match. ` +
+    `Reproduce EXACTLY: the same fur colour and every marking (every patch, stripe, spot, and white area in the same location), the same face shape and facial structure, the same eye colour and eye shape, the same ear shape and size, the same coat length and texture, the same body type and build, the same nose and whisker colour, and the same apparent age (kitten, adult, or senior). ` +
+    `Do NOT substitute a generic or similar-looking cat. Do NOT change the breed, markings, or proportions in any way. The viewer must immediately recognise this as the SAME individual cat. ` +
+    `\n\n` +
     `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `The FIRST reference image is the CAT (the star). The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
-    `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
-    `same fur colour, markings, face shape, eye colour, coat texture, and body type. ` +
-    `This cat is the star of the video. ` +
+    `The FIRST reference image is the CAT described in Rule #2 above — treat it as the definitive character reference. The SECOND reference image, if present, is the TEMPTATIONS BUTTON prop — match its exact shape, colours, proportions, glossy plastic finish, and cloud logo. ` +
     `\n\n` +
     `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
     `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
@@ -208,7 +212,7 @@ export default async function handler(req, res) {
     const prompt = buildPrompt(voiceStyle, compliment, elevenLabs, ENDINGS[endingIndex]);
     const referenceImages = [{
       image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
-      referenceType: "asset",
+      referenceType: "subject",
     }];
     if (useButtonRef && buttonBase64) {
       referenceImages.push({

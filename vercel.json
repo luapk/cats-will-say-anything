@@ -6,8 +6,9 @@
   "functions": {
     "api/veo.js": { "maxDuration": 60 },
     "api/gemini.js": { "maxDuration": 30 },
+    "api/voice.js": { "maxDuration": 30 },
     "api/finalize.js": {
-      "maxDuration": 60,
+      "maxDuration": 120,
       "includeFiles": "{node_modules/ffmpeg-static/**,public/click.mp3}"
     }
   }

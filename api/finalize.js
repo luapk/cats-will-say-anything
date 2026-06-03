@@ -23,7 +23,7 @@ import ffmpegPath from "ffmpeg-static";
 
 export const config = {
   api: { bodyParser: { sizeLimit: "10mb" } },
-  maxDuration: 60,
+  maxDuration: 120,
 };
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
@@ -230,7 +230,7 @@ export default async function handler(req, res) {
   if (!elevenKey) return res.status(500).json({ error: "ELEVENLABS_API_KEY not configured" });
   if (!ffmpegPath) return res.status(500).json({ error: "ffmpeg binary not available" });
 
-  const { videoUrl, voice, compliment } = req.body || {};
+  const { videoUrl, voice, compliment, voiceUrl: pregenVoiceUrl } = req.body || {};
   if (!videoUrl || !voice || !compliment) {
     return res.status(400).json({ error: "videoUrl, voice, and compliment are required" });
   }
@@ -249,10 +249,16 @@ export default async function handler(req, res) {
     const videoBuffer = Buffer.from(await vresp.arrayBuffer());
     await writeFile(inPath, videoBuffer);
 
-    // 2. In parallel: generate the voice, get Gemini's visual press estimate,
+    // 2. In parallel: generate/fetch the voice, get Gemini's visual press estimate,
     //    get video duration, and resolve the click asset.
+    const voiceBufferPromise = pregenVoiceUrl
+      ? fetch(pregenVoiceUrl).then(r => {
+          if (!r.ok) { console.warn("[finalize] pre-gen voice fetch failed, calling ElevenLabs"); return generateVoice(voiceId, compliment, elevenKey); }
+          return r.arrayBuffer().then(ab => Buffer.from(ab));
+        })
+      : generateVoice(voiceId, compliment, elevenKey);
     const [voiceBuffer, visual, videoLen, clickPath] = await Promise.all([
-      generateVoice(voiceId, compliment, elevenKey),
+      voiceBufferPromise,
       detectPressVisual(inPath, googleKey),
       mediaDuration(inPath).then(d => d || 8),
       resolveClickPath(),
