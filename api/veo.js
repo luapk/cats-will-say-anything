@@ -62,12 +62,11 @@ const ENDINGS = [
 function buildPrompt(voiceStyle, compliment, elevenLabs, ending) {
   const audioSection = elevenLabs
     ? (
-      // ElevenLabs mode: Veo is given NO audio instructions at all. Any audio
-      // directives (even "produce a click") trip Veo's audio safety filter, and
-      // finalize.js discards Veo's audio entirely anyway — it bakes the click and
-      // the voice from scratch, synced to the press detected from visual motion.
-      // So this section describes the ACTION only, never sound.
-      `ACTION — CRITICAL: At roughly 1 second in, the cat reaches out with one paw and presses the yellow cap straight down a short distance, then withdraws the paw. ONE press only — no second tap, no repeated pawing, no returning to the button. The cat's mouth stays completely shut throughout — no meowing, no vocalisation of any kind. ` +
+      // ElevenLabs mode: purely visual action description — zero audio vocabulary.
+      // Any word relating to sound (meow, click, voice, vocalise, silence, noise)
+      // triggers Veo's audio safety filter even as a negative instruction.
+      // finalize.js replaces Veo's audio track entirely anyway.
+      `ACTION — CRITICAL: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw back. ONE depression only — no second tap, no repeated pawing, no returning to the button. The cat's jaw remains closed and its face stays neutral throughout. ` +
       `\n\n` +
       `POST-PRESS: the cat turns its head and holds a deadpan, grumpy, unblinking stare directly into the camera — until the final shot below takes over. ` +
       `\n\n`
