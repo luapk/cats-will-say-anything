@@ -60,11 +60,10 @@ function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
 
   return (
     `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `The FIRST reference image is the CAT. The SECOND reference image is the TEMPTATIONS BUTTON — reproduce it EXACTLY as shown: same vivid red base, same yellow top cap, same white cloud logo badge, same high-gloss plastic finish. The reference image is the only authority on the button's appearance. ` +
-    `Generate a video featuring a cat that matches the cat reference as closely as possible: ` +
-    `same fur colour, markings, face shape, eye colour, coat texture, body type, and apparent age (kitten, adult, or senior). ` +
-    `This cat is the star of the video. ` +
-    `\n\n` +
+    `The FIRST reference image is the CAT — this exact cat is the star of the video and MUST be reproduced with photographic accuracy. ` +
+    `The cat in the video must be INDISTINGUISHABLE from the cat in the reference image: identical fur colour and exact markings (every patch, stripe, spot, and white area in the same place), identical face shape and facial structure, identical eye colour and eye shape, identical ear shape and size, identical coat length and texture, identical body type and build, identical nose and whisker colour, and the same apparent age (kitten, adult, or senior). ` +
+    `Do NOT substitute a generic or similar-looking cat, do NOT change the breed, do NOT alter the markings or proportions. It must be unmistakably the SAME individual cat. ` +
+    `The SECOND reference image is the TEMPTATIONS BUTTON — reproduce it EXACTLY as shown: same vivid red base, same yellow top cap, same white cloud logo badge, same high-gloss plastic finish. The reference image is the only authority on the button's appearance. ` +
     `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
     `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
     `\n\n` +
