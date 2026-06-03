@@ -185,10 +185,9 @@ function buildEndingPrompt() {
     `STARTING FRAME: The provided image is the EXACT first frame of this clip. ` +
     `Match it precisely — same cat, same position, same pose, same yellow studio, same lighting. The cat begins this clip exactly as it appears in the starting frame: already stationary, already looking into the lens, already still. ` +
     `\n\n` +
-    `ACTION: The cat holds completely still from the very first frame — no nodding, no head movement, no adjusting position, no leaning toward or away from anything. ` +
+    `ACTION: The cat's body remains completely motionless and seated throughout the entire clip — no standing up, no shifting weight, no repositioning, no body movement of any kind. The cat stays seated in exactly the same position as the starting frame. The head does not nod or turn. ` +
     `Over the full 8 seconds, the CAMERA (not the cat) executes one slow, smooth, continuous pull-back — a gentle recession away from the cat. ` +
-    `In the final 2 seconds, as the wide shot settles, the cat gives one slow, dismissive flick of its tail. ` +
-    `Simply a steady, slow camera recession that ends on a wide shot of the cat in the yellow studio. ` +
+    `In the final 2 seconds, the cat gives one slow, dismissive flick of its tail. The tail is the ONLY part of the cat that moves. ` +
     `\n\n` +
     `SCENE: Bright, vibrant, saturated yellow studio floor and background (a warm sunny lemon-yellow — NOT brown, beige, mustard, ochre, or muddy). Only the cat. ` +
     `\n\n` +
@@ -356,7 +355,7 @@ export default async function handler(req, res) {
   if (!elevenKey) return res.status(500).json({ error: "ELEVENLABS_API_KEY not configured" });
   if (!ffmpegPath) return res.status(500).json({ error: "ffmpeg binary not available" });
 
-  const { videoUrl, voice, compliment } = req.body || {};
+  const { videoUrl, voice, compliment, voiceUrl: pregenVoiceUrl } = req.body || {};
   if (!videoUrl || !voice || !compliment) {
     return res.status(400).json({ error: "videoUrl, voice, and compliment are required" });
   }
@@ -377,8 +376,15 @@ export default async function handler(req, res) {
 
     // 2. Generate ending clip (extract last frame → 5s Veo) and voice/assets in parallel.
     //    Ending is non-fatal: if it fails we fall back to main clip only.
+    const voiceBufferPromise = pregenVoiceUrl
+      ? fetch(pregenVoiceUrl).then(r => {
+          if (!r.ok) { console.warn("[finalize] pre-gen voice fetch failed, falling back to ElevenLabs"); return generateVoice(voiceId, compliment, elevenKey); }
+          return r.arrayBuffer().then(ab => Buffer.from(ab));
+        })
+      : generateVoice(voiceId, compliment, elevenKey);
+
     const [voiceBuffer, visual, mainLen, endingVideoUrl, clickPath, logoPath] = await Promise.all([
-      generateVoice(voiceId, compliment, elevenKey),
+      voiceBufferPromise,
       detectPressVisual(mainPath, googleKey),
       mediaDuration(mainPath).then(d => d || 8),
       generateEndingClip(mainPath, googleKey),

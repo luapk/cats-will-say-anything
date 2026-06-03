@@ -27,8 +27,8 @@ const BUTTON_SIZE = "approximately 90mm wide — small enough that it fits easil
 function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
   const audioSection = elevenLabs
     ? (
-      `ACTION — CRITICAL: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw fully back and away. ` +
-      `This is a SINGLE press — ONE and only ONE. After the paw is withdrawn it NEVER moves toward the button again for the rest of the clip. There is no second tap, no double-press, no hovering near the button, no returning to it for any reason. The button is pressed exactly once and then left completely alone. The cat's jaw remains closed and its face stays neutral throughout. ` +
+      `ACTION: At roughly 1 second in, the cat extends one paw and depresses the yellow cap straight down a short distance, then draws the paw fully back and away. ` +
+      `After the paw is withdrawn it NEVER moves toward the button again for the rest of the clip. There is no second tap, no double-press, no hovering near the button, no returning to it for any reason. The button is pressed exactly once and then left completely alone. The cat's jaw remains closed and its face stays neutral throughout. ` +
       `\n\n` +
       `POST-PRESS: the cat turns its head away from the button and holds a deadpan, grumpy, unblinking stare directly into the camera. The paw that pressed the button rests on the floor, well away from the button. Hold this stare until the clip ends. ` +
       `\n\n`
@@ -60,10 +60,12 @@ function buildMainPrompt(voiceStyle, compliment, elevenLabs) {
     );
 
   return (
+    `RULE #1 — SINGLE PRESS ONLY: The cat presses the button EXACTLY ONCE in this entire video. ONE press, then NEVER again under any circumstances. No second touch, no second tap, no double-press, no hovering, no returning to the button. This is absolute and overrides everything else. ` +
+    `\n\n` +
+    `RULE #2 — CAT LIKENESS IS PARAMOUNT: The cat in the video MUST be the IDENTICAL individual cat shown in the reference image — a perfect photographic match. Reproduce EXACTLY: the same fur colour and every marking (every patch, stripe, spot, and white area in the same location), the same face shape and facial structure, the same eye colour and eye shape, the same ear shape and size, the same coat length and texture, the same body type and build, the same nose and whisker colour, and the same apparent age. Do NOT substitute a generic or similar-looking cat. The viewer must immediately recognise this as the SAME individual cat. ` +
+    `\n\n` +
     `REFERENCE IMAGES: You are given reference images as character/prop references ONLY — they are NOT the first frame and must NEVER appear as a static still anywhere in the video. ` +
-    `The FIRST reference image is the CAT — this exact cat is the star of the video and MUST be reproduced with photographic accuracy. ` +
-    `The cat in the video must be INDISTINGUISHABLE from the cat in the reference image: identical fur colour and exact markings (every patch, stripe, spot, and white area in the same place), identical face shape and facial structure, identical eye colour and eye shape, identical ear shape and size, identical coat length and texture, identical body type and build, identical nose and whisker colour, and the same apparent age (kitten, adult, or senior). ` +
-    `Do NOT substitute a generic or similar-looking cat, do NOT change the breed, do NOT alter the markings or proportions. It must be unmistakably the SAME individual cat. ` +
+    `The FIRST reference image is the CAT described in Rule #2 — treat it as the definitive character reference. ` +
     `The SECOND reference image is the TEMPTATIONS BUTTON — reproduce it EXACTLY as shown: same vivid red base, same yellow top cap, same white cloud logo badge, same high-gloss plastic finish. The reference image is the only authority on the button's appearance. ` +
     `START OF VIDEO: The very first frame is already live action — the cat in the yellow studio, in motion, beginning to reach toward the button. ` +
     `Do NOT open on a static photo, freeze-frame, fade-in, or the reference image. The action is moving from frame 0, and the full beginning of the action must be shown (do not cut into the middle of the press). ` +
@@ -124,7 +126,7 @@ export default async function handler(req, res) {
 
     const referenceImages = [{
       image: { bytesBase64Encoded: imageBase64, mimeType: imageMimeType },
-      referenceType: "asset",
+      referenceType: "subject",
     }];
     if (useButtonRef && buttonBase64) {
       referenceImages.push({

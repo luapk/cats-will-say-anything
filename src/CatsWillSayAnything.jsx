@@ -52,6 +52,14 @@ const ANALYZING_MESSAGES = [
   "Quantifying the eye-roll energy...",
 ];
 
+const FINALIZE_STEPS = [
+  "Filming the final scene...",
+  "Mixing the audio track...",
+  "Adding the Temptations touch...",
+  "Assembling the masterpiece...",
+  "Almost in the can...",
+];
+
 const GENERATING_STEPS = [
   "Casting call issued. Cat unimpressed.",
   "Wardrobe fitting. Bow tie rejected.",
@@ -277,7 +285,14 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       lastComplimentRef.current = compliment;
       console.log("[createFilm] voice:", analysis.voice, "compliment:", compliment);
 
-      // Start generation (video + audio baked in one call)
+      // Kick off voice generation immediately — runs in parallel with Veo (~3 min),
+      // so the audio is ready before finalize even starts.
+      const voiceFetchPromise = fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice: analysis.voice, compliment }),
+      }).then(r => r.json()).catch(e => ({ error: e.message }));
+
       setGeneratingStep("On set. Briefing the cat...");
       const buttonRef = await getButtonBase64();
       const startResp = await fetch("/api/veo", {
@@ -319,18 +334,36 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       const mainUrl = mainPoll.url;
       const needsVoice = !!mainPoll.needsVoice;
 
-      // ElevenLabs mode: finalize generates the ending clip internally, concats,
-      // bakes click + voice, and overlays the logo.
+      // ElevenLabs mode: finalize generates the ending clip, concats, bakes audio, overlays logo.
       let finalUrl = needsVoice ? null : mainUrl;
       if (needsVoice) {
-        setGeneratingStep("Filming the final scene...");
-        const finResp = await fetch("/api/finalize", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: mainUrl, voice: analysis.voice, compliment }),
-        });
-        const finData = await finResp.json();
-        if (!finResp.ok || !finData.url) throw new Error(finData.error || "Voiceover compositing failed");
+        // Retrieve pre-generated voice URL (should already be done).
+        const voiceData = await voiceFetchPromise;
+        const pregenVoiceUrl = voiceData?.url || null;
+        if (!pregenVoiceUrl) console.warn("[createFilm] pre-generated voice unavailable:", voiceData?.error);
+
+        // Rotating step messages + real-time elapsed counter during finalize.
+        let finalizeStepIdx = 0;
+        setGeneratingStep(FINALIZE_STEPS[0]);
+        const finalizeStepInterval = setInterval(() => {
+          finalizeStepIdx = Math.min(finalizeStepIdx + 1, FINALIZE_STEPS.length - 1);
+          setGeneratingStep(FINALIZE_STEPS[finalizeStepIdx]);
+        }, 20000);
+        const finalizeElapsedInterval = setInterval(() => setElapsedSeconds(prev => prev + 1), 1000);
+
+        let finData;
+        try {
+          const finResp = await fetch("/api/finalize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ videoUrl: mainUrl, voice: analysis.voice, compliment, voiceUrl: pregenVoiceUrl }),
+          });
+          finData = await finResp.json();
+          if (!finResp.ok || !finData.url) throw new Error(finData.error || "Voiceover compositing failed");
+        } finally {
+          clearInterval(finalizeStepInterval);
+          clearInterval(finalizeElapsedInterval);
+        }
         finalUrl = finData.url;
       }
 
@@ -351,6 +384,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         friendly = `Video generation quota reached on the Google API key. This won't clear by retrying — the daily Veo quota is used up (or billing needs raising).\n\nDetail: ${raw}`;
       } else if (low.includes("audio for your prompt") || low.includes("issue with the audio")) {
         // Veo audio safety filter — can be a transient false positive, safe to retry.
+        friendly = `The film studio hit a content filter on this attempt. This sometimes clears on a retry — please try again.\n\nDetail: ${raw}`;
+      } else if (low.includes("audio for your prompt") || low.includes("issue with the audio")) {
         friendly = `The film studio hit a content filter on this attempt. This sometimes clears on a retry — please try again.\n\nDetail: ${raw}`;
       } else if (low.includes("overloaded") || low.includes("unavailable") || low.includes("503") || low.includes("high demand")) {
         friendly = `The film studio is very busy right now (Veo is temporarily overloaded). Wait a moment and try again.\n\nDetail: ${raw}`;
