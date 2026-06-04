@@ -834,13 +834,25 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         <div className="pw-wrap">
           <div className="cwsa-brand">
             <img src="/logo.png" alt="Temptations"
-              style={{ height: 120, display: "block", margin: "0 auto 8px", objectFit: "contain" }}
+              style={{ height: 140, display: "block", margin: "0 auto 24px", objectFit: "contain" }}
               onError={(e) => { e.target.style.display = "none"; }} />
-            <div className="cwsa-brand-sub">presents</div>
-            <h1 className="cwsa-title small">
-              <span>Cats Will</span><br />
-              <span className="cwsa-title-yellow">Say Anything</span>
-            </h1>
+            <h2 style={{
+              fontFamily: "'FilsonPro', 'Nunito', sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(28px, 7vw, 42px)",
+              color: "#0A0A0A",
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+              textAlign: "center",
+              marginBottom: 6,
+            }}>Coming Soon</h2>
+            <p style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#6B4F00",
+              textAlign: "center",
+              fontFamily: "'Roboto', sans-serif",
+            }}>Something irresistible is on its way.</p>
           </div>
           <div className="pw-card">
             <div className="pw-label">Enter password</div>
