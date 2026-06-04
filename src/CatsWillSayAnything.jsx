@@ -858,7 +858,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
             <div className="pw-label">Enter password</div>
             <form onSubmit={(e) => {
               e.preventDefault();
-              if (pwInput.trim().toLowerCase() === "treats") {
+              if (pwInput.trim().toLowerCase() === "treat5") {
                 sessionStorage.setItem("unlocked", "1");
                 setUnlocked(true);
               } else {
