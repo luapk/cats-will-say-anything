@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+const LOADER_STILLS = ["/director.png", "/clapper.png", "/boom.png"];
+
 const VOICES = {
   "Barry White Core": {
     emoji: "🎵",
@@ -180,6 +182,7 @@ export default function CatsWillSayAnything() {
       canvas.height = h;
       canvas.getContext("2d").drawImage(img, 0, 0, w, h);
       const dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+      URL.revokeObjectURL(img.src);
       setImageMimeType("image/jpeg");
       setImageBase64(dataUrl.split(",")[1]);
     };
@@ -1031,6 +1034,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
                   className="btn-red pulsing"
                   style={{ width: "100%", fontSize: "19px", padding: "18px" }}
                   onClick={createFilm}
+                  disabled={screen === "generating"}
                 >
                   🎬 Create Film
                 </button>
@@ -1042,7 +1046,6 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
 
         {/* ── GENERATING ── */}
         {screen === "generating" && (() => {
-          const LOADER_STILLS = ["/director.png", "/clapper.png", "/boom.png"];
           const phase = loaderImgIndex % 4;
           const isUserPhoto = phase === 3;
           const imgSrc = isUserPhoto ? catImage : LOADER_STILLS[phase];
