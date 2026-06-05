@@ -248,6 +248,7 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
         })
       });
       const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || `Gemini HTTP ${resp.status}`);
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
@@ -265,13 +266,8 @@ Respond ONLY as valid JSON. No preamble, no backticks, no markdown:
       setScreen("revealed");
     } catch (err) {
       console.error("[analyzeCat] error:", err?.message || err);
-      const fallback = VOICE_KEYS[Math.floor(Math.random() * VOICE_KEYS.length)];
-      setAnalysis({
-        voice: fallback,
-        reasoning: "Analysis encountered resistance. Your cat refused to cooperate with the process. Which, frankly, tells us everything we need to know.",
-        tagline: "Unknowable. Possibly judging everyone."
-      });
-      setScreen("revealed");
+      setScreen("upload");
+      setUploadError(`Analysis failed: ${err?.message || "Unknown error"}. Please try again.`);
     }
   };
 
